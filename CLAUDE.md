@@ -18,16 +18,28 @@ Sortis iOS App 是一个消息聚合应用的 iOS 客户端，使用 SwiftUI 构
 # 打开项目
 open Sortis.xcodeproj
 
-# 命令行构建
+# 命令行构建 (模拟器)
 xcodebuild -project Sortis.xcodeproj -scheme Sortis -destination 'platform=iOS Simulator,name=iPhone 15' build
 
 # 运行测试
 xcodebuild -project Sortis.xcodeproj -scheme Sortis -destination 'platform=iOS Simulator,name=iPhone 15' test
 ```
 
+### CI/CD 构建
+- GitHub Actions 自动构建：`.github/workflows/ios-build.yml`
+- 构建产物：Sortis-iOS-Simulator.zip (模拟器) 和 Sortis-Unsigned.ipa (设备)
+- 下载地址：https://github.com/SuPerCxyz/sortis-ios/actions
+
+### 构建验证记录
+- **2026-03-27**: v1.0.0 构建成功
+  - 模拟器包：Sortis-iOS-Simulator.zip (1.4MB)，包含 Sortis.app (6.2MB 可执行文件)
+  - 设备包：Sortis-Unsigned.ipa (448KB)，arm64 架构
+  - Bundle ID: app.sortis.ios
+  - 最低 iOS 版本：17.0
+
 ### 构建验证要求
-- 每次修改完成后，必须在模拟器或真机上安装并验证改动是否生效
-- 回归完成后必须回报：构建版本号、验证结果
+- 每次修改完成后，必须通过 CI 构建验证
+- 回归完成后必须回报：构建版本号、产物大小、验证结果
 
 ## 项目结构
 
@@ -123,5 +135,19 @@ Sortis/
 
 1. **交互语言**: 一律使用中文
 2. **改动范围**: 仅修改业务逻辑时禁止擅自修改 UI/样式/布局
-3. **验证流程**: 修改后在模拟器或真机上验证
+3. **验证流程**: 修改后通过 GitHub Actions CI 构建验证
 4. **代码一致性**: 遵循现有代码风格，不引入无关依赖
+
+## Swift 开发注意事项
+
+### 已解决的编译问题
+1. **关键字冲突**: `operator` 是 Swift 保留字，使用 `op` 代替
+2. **类型命名冲突**: `CategoryInfo` 在多个文件中定义，使用 `RuleCategoryInfo` 区分
+3. **Optional 解包**: Optional 类型调用方法前必须解包（如 `token.createdAt?.method()` 或 `(token.createdAt ?? "").method()`）
+4. **ActionSheet 限制**: SwiftUI 的 ActionSheet 类型不能使用 `.sheet` 修饰符，需改用自定义视图或 confirmationDialog
+5. **async 上下文**: 在非 async 函数中调用 async 函数需使用 `Task { await ... }`
+6. **参数标签**: 调用函数时必须使用参数标签（如 `getStatsOverview(days: 7)` 而非 `getStatsOverview(7)`）
+7. **self 捕获**: Task 闭包中访问实例属性需使用 `[weak self]` 并解包
+
+### Swift 关键字列表 (禁止用作属性名)
+`operator`, `type`, `class`, `struct`, `enum`, `protocol`, `func`, `var`, `let`, `import`, `return`, `if`, `else`, `for`, `while`, `do`, `try`, `catch`, `switch`, `case`, `default`, `break`, `continue`, `private`, `public`, `internal`, `static`, `self`, `super`, `nil`, `true`, `false`
