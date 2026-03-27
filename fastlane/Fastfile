@@ -1,0 +1,51 @@
+# Fastlane 配置
+# 安装: gem install fastlane
+# 使用: fastlane ios build
+
+default_platform(:ios)
+
+platform :ios do
+  desc "Build for iOS Simulator"
+  lane :build_simulator do
+    gym(
+      project: "Sortis.xcodeproj",
+      scheme: "Sortis",
+      destination: "platform=iOS Simulator,name=iPhone 15 Pro",
+      configuration: "Debug",
+      output_directory: "build",
+      output_name: "Sortis-Simulator",
+      skip_package_ipa: true,
+      skip_archive: true
+    )
+  end
+
+  desc "Build unsigned IPA for testing"
+  lane :build_unsigned do
+    gym(
+      project: "Sortis.xcodeproj",
+      scheme: "Sortis",
+      destination: "generic/platform=iOS",
+      configuration: "Release",
+      output_directory: "build",
+      output_name: "Sortis-Unsigned",
+      export_method: "development",
+      codesigning_identity: "-",
+      skip_codesigning: true
+    )
+  end
+
+  desc "Run tests"
+  lane :test do
+    run_tests(
+      project: "Sortis.xcodeproj",
+      scheme: "Sortis",
+      destination: "platform=iOS Simulator,name=iPhone 15 Pro"
+    )
+  end
+
+  desc "Build and test"
+  lane :build do
+    test
+    build_simulator
+  end
+end
