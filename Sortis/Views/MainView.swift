@@ -242,7 +242,9 @@ struct DashboardView: View {
             await viewModel.loadStats()
         }
         .onAppear {
-            viewModel.loadStats()
+            Task {
+                await viewModel.loadStats()
+            }
         }
     }
 
@@ -269,15 +271,15 @@ class DashboardViewModel: ObservableObject {
     @MainActor
     func loadStats() async {
         do {
-            let overview = try await statsService.getStatsOverview(7)
+            let overview = try await statsService.getStatsOverview(days: 7)
             total = overview.messageStats.total
             unread = overview.messageStats.unread
             starred = overview.messageStats.starred
 
-            let categories = try await categoryService.getCategoryTree("7d")
+            let categories = try await categoryService.getCategoryTree(timeRange: "7d")
             categoryCount = categories.count
 
-            let activityResponse = try await statsService.getStatsActivity(30)
+            let activityResponse = try await statsService.getStatsActivity(days: 30)
             activity = activityResponse.daily
 
             categoryStats = try await statsService.getStatsCategories()

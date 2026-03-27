@@ -175,28 +175,71 @@ struct MessageActionSheet: View {
     @State private var showMoveSheet = false
 
     var body: some View {
-        ActionSheet(
-            title: Text(message.title ?? "(无标题)"),
-            message: nil,
-            buttons: [
-                .default(Text(message.isRead ? "标记为未读" : "标记为已读"), action: {
-                    onToggleRead()
-                    onDismiss()
-                }),
-                .default(Text(message.isStarred ? "取消星标" : "添加星标"), action: {
-                    onToggleStar()
-                    onDismiss()
-                }),
-                .default(Text("移动到分类"), action: {
-                    showMoveSheet = true
-                }),
-                .destructive(Text("删除"), action: {
-                    onDelete()
-                    onDismiss()
-                }),
-                .cancel(Text("取消"), action: onDismiss)
-            ]
-        )
+        VStack(spacing: 0) {
+            // 标题
+            Text(message.title ?? "(无标题)")
+                .font(.headline)
+                .padding()
+                .frame(maxWidth: .infinity)
+                .background(Color(.systemGray6))
+
+            Divider()
+
+            // 操作按钮
+            Button(action: {
+                onToggleRead()
+                onDismiss()
+            }) {
+                Text(message.isRead ? "标记为未读" : "标记为已读")
+                    .frame(maxWidth: .infinity)
+                    .padding()
+            }
+
+            Divider()
+
+            Button(action: {
+                onToggleStar()
+                onDismiss()
+            }) {
+                Text(message.isStarred ? "取消星标" : "添加星标")
+                    .frame(maxWidth: .infinity)
+                    .padding()
+            }
+
+            Divider()
+
+            Button(action: {
+                showMoveSheet = true
+            }) {
+                Text("移动到分类")
+                    .frame(maxWidth: .infinity)
+                    .padding()
+            }
+
+            Divider()
+
+            Button(action: {
+                onDelete()
+                onDismiss()
+            }) {
+                Text("删除")
+                    .foregroundColor(.red)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+            }
+
+            Divider()
+
+            Button(action: onDismiss) {
+                Text("取消")
+                    .fontWeight(.medium)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+            }
+        }
+        .background(Color(.systemBackground))
+        .cornerRadius(12)
+        .shadow(radius: 10)
         .sheet(isPresented: $showMoveSheet) {
             MoveToCategorySheet(categories: categories) { categoryId in
                 onMove(categoryId)

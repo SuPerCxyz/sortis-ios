@@ -146,7 +146,7 @@ struct TokenCard: View {
 
                 Spacer()
 
-                Text("创建于: \(token.createdAt.formatDateTime())")
+                Text("创建于: \((token.createdAt ?? "").formatDateTime())")
                     .font(.caption2)
                     .foregroundColor(.secondary)
             }
@@ -248,7 +248,7 @@ struct TokenEditDialog: View {
                 if let token = token {
                     Section(header: Text("Token 信息")) {
                         LabeledContent("创建时间") {
-                            Text(token.createdAt.formatDateTime())
+                            Text((token.createdAt ?? "").formatDateTime())
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
