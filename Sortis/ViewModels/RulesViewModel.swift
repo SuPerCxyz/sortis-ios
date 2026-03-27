@@ -108,7 +108,7 @@ class RulesViewModel: ObservableObject {
                 "match_type": AnyEncodable(matchType),
                 "conditions": AnyEncodable(conditions.map { [
                     "field": $0.field,
-                    "operator": $0.operator,
+                    "operator": $0.op,
                     "value": $0.value
                 ] as [String: String] })
             ]
@@ -140,18 +140,19 @@ class RulesViewModel: ObservableObject {
         conditions: [RuleConditionDraft],
         isEnabled: Bool
     ) {
-        Task {
+        Task { [weak self] in
+            guard let self = self else { return }
             let conditionsDict: [String: AnyEncodable] = [
                 "match_type": AnyEncodable(matchType),
                 "conditions": AnyEncodable(conditions.map { [
                     "field": $0.field,
-                    "operator": $0.operator,
+                    "operator": $0.op,
                     "value": $0.value
                 ] as [String: String] })
             ]
 
             do {
-                let updated = try await ruleService.updateRule(
+                let updated = try await self.ruleService.updateRule(
                     ruleId: ruleId,
                     name: name,
                     description: description,
@@ -160,13 +161,13 @@ class RulesViewModel: ObservableObject {
                     conditions: conditionsDict,
                     isEnabled: isEnabled
                 )
-                if let index = rules.firstIndex(where: { $0.id == ruleId }) {
-                    rules[index] = updated
+                if let index = self.rules.firstIndex(where: { $0.id == ruleId }) {
+                    self.rules[index] = updated
                 }
-                if let index = allRules.firstIndex(where: { $0.id == ruleId }) {
-                    allRules[index] = updated
+                if let index = self.allRules.firstIndex(where: { $0.id == ruleId }) {
+                    self.allRules[index] = updated
                 }
-                editRule = nil
+                self.editRule = nil
             } catch let err {
                 error = err.localizedDescription
             }

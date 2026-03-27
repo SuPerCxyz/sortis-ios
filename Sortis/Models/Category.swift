@@ -71,6 +71,12 @@ struct FlatCategory: Identifiable {
     let id: Int
     let category: Category
     let indent: Int
+
+    init(category: Category, indent: Int = 0) {
+        self.id = category.id
+        self.category = category
+        self.indent = indent
+    }
 }
 
 // 扁平化分类树
