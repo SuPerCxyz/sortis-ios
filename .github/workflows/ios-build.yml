@@ -90,15 +90,17 @@ jobs:
 
       - name: Build for device (unsigned)
         run: |
-          xcodebuild build \
+          # Build for device without code signing
+          xcodebuild archive \
             -project Sortis.xcodeproj \
             -scheme Sortis \
             -destination 'generic/platform=iOS' \
             -configuration Release \
+            -archivePath build/Sortis.xcarchive \
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
-            -archivePath build/Sortis.xcarchive
+            DEVELOPMENT_TEAM=""
 
       - name: Create unsigned IPA
         run: |
