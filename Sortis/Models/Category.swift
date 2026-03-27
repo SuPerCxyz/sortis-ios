@@ -83,7 +83,7 @@ struct FlatCategory: Identifiable {
 func flattenCategories(_ categories: [Category], indent: Int = 0) -> [FlatCategory] {
     var result: [FlatCategory] = []
     for cat in categories {
-        result.append(FlatCategory(id: cat.id, category: cat, indent: indent))
+        result.append(FlatCategory(category: cat, indent: indent))
         if let children = cat.children, !children.isEmpty {
             result.append(contentsOf: flattenCategories(children, indent: indent + 1))
         }
