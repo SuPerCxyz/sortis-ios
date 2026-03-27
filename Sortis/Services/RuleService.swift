@@ -44,7 +44,7 @@ class RuleService {
             body["description"] = AnyEncodable(description)
         }
 
-        return try await client.post(path: "/api/rules", body: body as! [String : AnyEncodable])
+        return try await client.post(path: "/api/rules", body: body)
     }
 
     // 更新规则
@@ -74,7 +74,7 @@ class RuleService {
             body["is_enabled"] = AnyEncodable(isEnabled)
         }
 
-        return try await client.put(path: "/api/rules/\(ruleId)", body: body as! [String : AnyEncodable])
+        return try await client.put(path: "/api/rules/\(ruleId)", body: body)
     }
 
     // 切换规则状态
@@ -87,13 +87,19 @@ class RuleService {
         return try await client.delete(path: "/api/rules/\(ruleId)")
     }
 
+    // 重新分类响应
+struct RecategorizeResponse: Decodable {
+    let processed: Int
+    let message: String?
+}
+
     // 重新分类
-    func recategorizeRules(categoryIds: [Int]? = nil) async throws -> [String: Any] {
+    func recategorizeRules(categoryIds: [Int]? = nil) async throws -> RecategorizeResponse {
         var body: [String: AnyEncodable] = [:]
         if let categoryIds = categoryIds {
             body["category_ids"] = AnyEncodable(categoryIds)
         }
 
-        return try await client.post(path: "/api/rules/re-categorize", body: body as! [String : AnyEncodable])
+        return try await client.post(path: "/api/rules/re-categorize", body: body)
     }
 }

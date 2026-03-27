@@ -13,7 +13,7 @@ struct Rule: Identifiable, Decodable {
     let name: String
     let description: String?
     let categoryId: Int
-    let category: CategoryInfo?
+    let category: RuleCategoryInfo?
     let conditions: [RuleCondition]
     let priority: Int
     let isEnabled: Bool
@@ -35,7 +35,7 @@ struct Rule: Identifiable, Decodable {
         name = try container.decode(String.self, forKey: .name)
         description = try container.decodeIfPresent(String.self, forKey: .description)
         categoryId = try container.decode(Int.self, forKey: .categoryId)
-        category = try container.decodeIfPresent(CategoryInfo.self, forKey: .category)
+        category = try container.decodeIfPresent(RuleCategoryInfo.self, forKey: .category)
         priority = try container.decodeIfPresent(Int.self, forKey: .priority) ?? 0
         isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? true
         createdAt = try container.decodeIfPresent(String.self, forKey: .createdAt)
@@ -66,16 +66,21 @@ struct Rule: Identifiable, Decodable {
     }
 }
 
-// Category info for rules
-struct CategoryInfo: Decodable {
+// Category info for rules (use different name to avoid conflict)
+struct RuleCategoryInfo: Decodable {
     let id: Int
     let name: String
 }
 
 // 规则条件包装
 struct RuleConditionsWrapper: Decodable {
-    let operator: String?
+    let matchType: String?
     let conditions: [RuleCondition]
+
+    enum CodingKeys: String, CodingKey {
+        case matchType = "match_type"
+        case conditions
+    }
 }
 
 // 规则条件
@@ -83,13 +88,13 @@ struct RuleCondition: Identifiable, Decodable {
     var id: Int { _id ?? 0 }
     private let _id: Int?
     let field: String
-    let `operator`: String
+    let op: String  // 使用 op 代替 operator 避免关键字问题
     let value: AnyEncodable
 
     enum CodingKeys: String, CodingKey {
         case _id = "id"
         case field
-        case `operator`
+        case op = "operator"
         case value
     }
 
@@ -97,7 +102,7 @@ struct RuleCondition: Identifiable, Decodable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         _id = try container.decodeIfPresent(Int.self, forKey: ._id)
         field = try container.decode(String.self, forKey: .field)
-        `operator` = try container.decode(String.self, forKey: .operator)
+        op = try container.decode(String.self, forKey: .op)
 
         // Try to decode value as string first, then as any
         if let stringValue = try? container.decode(String.self, forKey: .value) {
@@ -107,12 +112,15 @@ struct RuleCondition: Identifiable, Decodable {
         }
     }
 
-    init(id: Int? = nil, field: String, operator: String, value: AnyEncodable) {
+    init(id: Int? = nil, field: String, op: String, value: AnyEncodable) {
         self._id = id
         self.field = field
-        self.`operator` = `operator`
+        self.op = op
         self.value = value
     }
+
+    // Compatibility property
+    var `operator`: String { op }
 }
 
 // 规则列表响应

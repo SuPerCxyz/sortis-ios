@@ -25,11 +25,16 @@ class APIClient {
         UserDefaults.standard.string(forKey: "serverUrl") ?? ""
     }
 
-    // 构建完整 URL
-    private func buildURL(path: String) -> URL? {
+    // 构建完整 URL（公共方法）
+    func makeURL(path: String) -> URL? {
         let baseUrl = serverUrl.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         let fullPath = "\(baseUrl)\(path)"
         return URL(string: fullPath)
+    }
+
+    // 构建完整 URL（私有方法）
+    private func buildURL(path: String) -> URL? {
+        return makeURL(path: path)
     }
 
     // 构建请求

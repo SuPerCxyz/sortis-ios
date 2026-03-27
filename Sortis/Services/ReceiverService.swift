@@ -7,6 +7,12 @@
 
 import Foundation
 
+// 验证响应
+struct ValidateResponse: Decodable {
+    let valid: Bool
+    let message: String?
+}
+
 class ReceiverService {
     private let client = APIClient.shared
 
@@ -33,7 +39,7 @@ class ReceiverService {
             body["sync_interval"] = AnyEncodable(syncInterval)
         }
 
-        return try await client.post(path: "/api/receivers", body: body as! [String : AnyEncodable])
+        return try await client.post(path: "/api/receivers", body: body)
     }
 
     // 更新接收器
@@ -48,7 +54,7 @@ class ReceiverService {
             body["sync_interval"] = AnyEncodable(syncInterval)
         }
 
-        return try await client.put(path: "/api/receivers/\(receiverId)", body: body as! [String : AnyEncodable])
+        return try await client.put(path: "/api/receivers/\(receiverId)", body: body)
     }
 
     // 同步接收器
@@ -68,11 +74,11 @@ class ReceiverService {
     }
 
     // 验证接收器配置
-    func validateReceiver(type: String, config: [String: AnyEncodable]) async throws -> [String: Any] {
+    func validateReceiver(type: String, config: [String: AnyEncodable]) async throws -> ValidateResponse {
         let body: [String: AnyEncodable] = [
             "type": AnyEncodable(type),
             "config": AnyEncodable(config)
         ]
-        return try await client.post(path: "/api/receivers/validate", body: body as! [String : AnyEncodable])
+        return try await client.post(path: "/api/receivers/validate", body: body)
     }
 }

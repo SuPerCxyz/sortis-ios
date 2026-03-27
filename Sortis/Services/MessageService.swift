@@ -91,7 +91,7 @@ class MessageService {
 
     // 移动消息到分类
     func moveMessage(messageId: Int, categoryId: Int) async throws -> Bool {
-        guard let url = client.buildURL?(path: "/api/messages/bulk-move?category_id=\(categoryId)") else {
+        guard let url = client.makeURL(path: "/api/messages/bulk-move?category_id=\(categoryId)") else {
             throw APIError.invalidURL
         }
 

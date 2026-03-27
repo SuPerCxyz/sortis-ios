@@ -286,7 +286,7 @@ struct RuleEditDialog: View {
                     Button(action: {
                         conditions.append(RuleConditionDraft(
                             field: "title",
-                            operator: "contains",
+                            op: "contains",
                             value: ""
                         ))
                     }) {
@@ -318,7 +318,7 @@ struct RuleEditDialog: View {
                 categoryId = rule.categoryId
                 conditions = rule.conditions.map { RuleConditionDraft(
                     field: $0.field,
-                    operator: $0.operator,
+                    op: $0.op,
                     value: ($0.value.value as? String) ?? ""
                 ) }
             }
@@ -329,7 +329,7 @@ struct RuleEditDialog: View {
 // 条件草稿
 struct RuleConditionDraft {
     var field: String
-    var operator: String
+    var op: String  // 使用 op 避免关键字问题
     var value: String
 }
 
@@ -347,7 +347,7 @@ struct ConditionRow: View {
                 }
             }
 
-            Picker("操作", selection: $condition.operator) {
+            Picker("操作", selection: $condition.op) {
                 ForEach(operatorOptions, id: \.self) { op in
                     Text(getOperatorName(op)).tag(op)
                 }

@@ -35,7 +35,7 @@ class TokenService {
             body["description"] = AnyEncodable(description)
         }
 
-        return try await client.post(path: "/api/tokens", body: body as! [String : AnyEncodable])
+        return try await client.post(path: "/api/tokens", body: body)
     }
 
     // 更新 Token

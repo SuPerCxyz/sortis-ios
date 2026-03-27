@@ -69,7 +69,7 @@ class AuthService {
 
     // 删除账户
     func deleteAccount() async throws {
-        let _: EmptyResponse = try await client.delete(path: "/api/auth/account")
+        _ = try await client.delete(path: "/api/auth/account")
         logout()
     }
 }
