@@ -31,14 +31,39 @@ xcodebuild -project Sortis.xcodeproj -scheme Sortis -destination 'platform=iOS S
 - 下载地址：https://github.com/SuPerCxyz/sortis-ios/actions
 
 ### 构建验证记录
-- **2026-03-27**: v1.0.0 构建成功
-  - 模拟器包：Sortis-iOS-Simulator.zip (1.4MB)，包含 Sortis.app (6.2MB 可执行文件)
-  - 设备包：Sortis-Unsigned.ipa (448KB)，arm64 架构
-  - Bundle ID: app.sortis.ios
-  - 最低 iOS 版本：17.0
+
+#### 2026-03-27 v1.0.0 验证完成
+
+**构建产物：**
+| 平台 | 产物 | 大小 | 状态 |
+|------|------|------|------|
+| iOS 模拟器 | Sortis-iOS-Simulator.zip | 1.4MB | ✅ 成功 |
+| iOS 设备 | Sortis-Unsigned.ipa | 448KB | ✅ 成功 |
+| Android | sortis-dev-0.0.1-alpha.37.apk | 16MB | ✅ 成功 |
+
+**验证环境：**
+- 主机: Ubuntu 24.04.4 LTS (Linux x86_64)
+- Android 模拟器: sdk_gphone64_x86_64, Android 14 (API 34)
+- 后端: localhost:8000 正常响应
+
+**iOS 功能对比 (代码层面)：**
+| 功能 | iOS | Android | 状态 |
+|------|-----|---------|------|
+| 登录认证 | ✅ | ✅ | 一致 |
+| 信息视图/分类导航 | ✅ | ✅ | 一致 |
+| 消息列表/详情/操作 | ✅ | ✅ | 一致 |
+| 分类管理 CRUD | ✅ | ✅ | 一致 |
+| 规则管理 | ✅ | ✅ | 一致 |
+| 接收器管理 | ✅ | ✅ | 一致 |
+| Token 管理 | ✅ | ✅ | 一致 |
+| 设置/帮助页面 | ✅ | ✅ | 一致 |
+
+**限制说明：**
+- Linux 无法运行 iOS 模拟器，iOS 真机验证需 macOS 或 Corellium
+- 无头模式 Android 模拟器服务稳定性受限，建议使用 GUI 环境测试
 
 ### 构建验证要求
-- 每次修改完成后，必须通过 CI 构建验证
+- 每次修改完成后，必须通过 GitHub Actions CI 构建验证
 - 回归完成后必须回报：构建版本号、产物大小、验证结果
 
 ## 项目结构
