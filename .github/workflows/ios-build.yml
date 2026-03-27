@@ -102,6 +102,43 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             DEVELOPMENT_TEAM=""
 
+      - name: Embed Swift libraries
+        run: |
+          # Find Swift toolchain
+          TOOLCHAIN_DIR=$(xcode-select -p)/Toolchains/XcodeDefault.xctoolchain
+          SWIFT_LIB_DIR="$TOOLCHAIN_DIR/usr/lib/swift-5.5/iphoneos"
+
+          # If swift-5.5 doesn't exist, try swift folder
+          if [ ! -d "$SWIFT_LIB_DIR" ]; then
+            SWIFT_LIB_DIR="$TOOLCHAIN_DIR/usr/lib/swift/iphoneos"
+          fi
+
+          echo "Swift libraries location: $SWIFT_LIB_DIR"
+          ls -la "$SWIFT_LIB_DIR" || echo "Directory not found"
+
+          # Create Frameworks directory and copy Swift libraries
+          APP_PATH="build/Sortis.xcarchive/Products/Applications/Sortis.app"
+          mkdir -p "$APP_PATH/Frameworks"
+
+          # Copy required Swift dylibs
+          for lib in libswiftCore.dylib libswiftFoundation.dylib libswiftUIKit.dylib \
+                      libswiftSwiftOnoneSupport.dylib libswift_Concurrency.dylib \
+                      libswiftDarwin.dylib libswiftDispatch.dylib libswiftObjectiveC.dylib \
+                      libswiftCoreGraphics.dylib libswiftCoreImage.dylib libswiftCoreText.dylib \
+                      libswiftsimd.dylib libswiftos.dylib libswiftQuartzCore.dylib \
+                      libswiftSpriteKit.dylib libswiftSceneKit.dylib libswiftCoreAudio.dylib \
+                      libswiftCoreData.dylib libswiftCoreLocation.dylib libswiftCoreMedia.dylib \
+                      libswiftAVFoundation.dylib libswiftAccelerate.dylib libswiftMetal.dylib \
+                      libswiftSwiftDylib.dylib; do
+            if [ -f "$SWIFT_LIB_DIR/$lib" ]; then
+              cp "$SWIFT_LIB_DIR/$lib" "$APP_PATH/Frameworks/"
+              echo "Copied $lib"
+            fi
+          done
+
+          echo "Frameworks contents:"
+          ls -la "$APP_PATH/Frameworks/" || echo "No frameworks"
+
       - name: Create unsigned IPA
         run: |
           mkdir -p build/Payload
