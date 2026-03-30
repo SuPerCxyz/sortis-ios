@@ -9,10 +9,14 @@ import Foundation
 
 class CategoryService {
     private let client = APIClient.shared
+    private var serverUrl: String? {
+        UserDefaults.standard.string(forKey: "serverUrl")
+    }
 
     // 获取分类列表
     func getCategories() async throws -> [Category] {
-        return try await client.get(path: "/api/categories")
+        let categories: [Category] = try await client.get(path: "/api/categories")
+        return categories.map { $0.normalizedIconURL(serverUrl: serverUrl) }
     }
 
     // 获取分类树
@@ -21,7 +25,8 @@ class CategoryService {
         if let timeRange = timeRange {
             queryItems.append(URLQueryItem(name: "time_range", value: timeRange))
         }
-        return try await client.get(path: "/api/categories/tree", queryItems: queryItems.isEmpty ? nil : queryItems)
+        let categories: [Category] = try await client.get(path: "/api/categories/tree", queryItems: queryItems.isEmpty ? nil : queryItems)
+        return categories.map { $0.normalizedIconURL(serverUrl: serverUrl) }
     }
 
     // 创建分类

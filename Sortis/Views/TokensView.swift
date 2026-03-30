@@ -60,8 +60,13 @@ struct TokensView: View {
         .sheet(isPresented: $viewModel.isCreateOpen) {
             TokenEditDialog(
                 token: nil,
-                onSave: { name, expiresIn in
-                    viewModel.createToken(name: name, receiverIds: nil, expiresInDays: expiresIn)
+                receivers: viewModel.receivers,
+                onSave: { name, receiverIds, expiresIn in
+                    viewModel.createToken(
+                        name: name,
+                        receiverIds: receiverIds.isEmpty ? nil : receiverIds,
+                        expiresInDays: expiresIn
+                    )
                 },
                 onDismiss: { viewModel.setCreateOpen(false) }
             )
@@ -69,7 +74,8 @@ struct TokensView: View {
         .sheet(item: $viewModel.editToken) { token in
             TokenEditDialog(
                 token: token,
-                onSave: { name, _ in
+                receivers: viewModel.receivers,
+                onSave: { name, _, _ in
                     viewModel.updateToken(tokenId: token.id, name: name)
                 },
                 onDismiss: { viewModel.setEditToken(nil) }
@@ -101,12 +107,16 @@ struct TokensView: View {
     }
 }
 
-// Token 卡片
 struct TokenCard: View {
     let token: ApiToken
     let onToggle: () -> Void
     let onEdit: () -> Void
     let onDelete: () -> Void
+
+    private var receiverSummary: String {
+        let names = token.receiverNames ?? []
+        return names.isEmpty ? "无绑定接收器" : names.joined(separator: ", ")
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -121,8 +131,7 @@ struct TokenCard: View {
 
                 Spacer()
 
-                // 状态
-                Text(token.isActive ? "活跃" : "停用")
+                Text(token.isActive ? "运行中" : "已暂停")
                     .font(.caption2)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
@@ -131,18 +140,19 @@ struct TokenCard: View {
                     .cornerRadius(4)
             }
 
-            // Token 值（部分隐藏）
-            Text(maskToken(token.token))
+            Text(receiverSummary)
+                .font(.caption2)
+                .foregroundColor(.secondary)
+                .lineLimit(1)
+
+            Text(maskToken(token.tokenPreview ?? token.token))
                 .font(.system(size: 12, design: .monospaced))
                 .foregroundColor(.secondary)
 
-            // 底部信息
             HStack {
-                if let lastUsed = token.lastUsedAt {
-                    Text("上次使用: \(lastUsed.formatDateTime())")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                }
+                Text("上次使用: \(token.lastUsedAt?.formatDateTime() ?? "从未使用")")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
 
                 Spacer()
 
@@ -151,7 +161,6 @@ struct TokenCard: View {
                     .foregroundColor(.secondary)
             }
 
-            // 操作按钮
             HStack {
                 Spacer()
 
@@ -167,7 +176,7 @@ struct TokenCard: View {
                         Label("编辑", systemImage: "pencil")
                     }
                     Button {
-                        UIPasteboard.general.string = token.token
+                        UIPasteboard.general.string = token.plainToken ?? token.tokenPreview ?? token.token
                     } label: {
                         Label("复制 Token", systemImage: "doc.on.doc")
                     }
@@ -198,15 +207,16 @@ struct TokenCard: View {
     }
 }
 
-// Token 编辑对话框
 struct TokenEditDialog: View {
     let token: ApiToken?
-    let onSave: (String, Int?) -> Void
+    let receivers: [Receiver]
+    let onSave: (String, [Int], Int?) -> Void
     let onDismiss: () -> Void
 
     @State private var name: String = ""
     @State private var expiresIn: Int = 0
     @State private var customDays: String = ""
+    @State private var selectedReceiverIds: Set<Int> = []
 
     @Environment(\.dismiss) var dismiss
 
@@ -227,6 +237,29 @@ struct TokenEditDialog: View {
                 }
 
                 if token == nil {
+                    Section(header: Text("关联接收器")) {
+                        if receivers.isEmpty {
+                            Text("暂无可选接收器")
+                                .foregroundColor(.secondary)
+                        } else {
+                            ForEach(receivers) { receiver in
+                                Button {
+                                    toggleReceiver(receiver.id)
+                                } label: {
+                                    HStack {
+                                        Text(receiver.name)
+                                            .foregroundColor(.primary)
+                                        Spacer()
+                                        if selectedReceiverIds.contains(receiver.id) {
+                                            Image(systemName: "checkmark")
+                                                .foregroundColor(.sortisPrimary)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     Section(header: Text("有效期")) {
                         Picker("过期时间", selection: $expiresIn) {
                             ForEach(expiryOptions, id: \.0) { value, label in
@@ -245,7 +278,7 @@ struct TokenEditDialog: View {
                     }
                 }
 
-                if let token = token {
+                if let token {
                     Section(header: Text("Token 信息")) {
                         LabeledContent("创建时间") {
                             Text((token.createdAt ?? "").formatDateTime())
@@ -268,23 +301,34 @@ struct TokenEditDialog: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("取消") {
+                        onDismiss()
                         dismiss()
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("保存") {
+                        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
                         let days: Int? = expiresIn == 0 ? nil : (expiresIn == -1 ? Int(customDays) : expiresIn)
-                        onSave(name, days)
+                        onSave(trimmedName, Array(selectedReceiverIds), days)
                         dismiss()
                     }
-                    .disabled(name.isEmpty || (expiresIn == -1 && Int(customDays) == nil))
+                    .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || (expiresIn == -1 && Int(customDays) == nil))
                 }
             }
         }
         .onAppear {
-            if let token = token {
+            if let token {
                 name = token.name
+                selectedReceiverIds = Set(token.receiverIds ?? [])
             }
+        }
+    }
+
+    private func toggleReceiver(_ receiverId: Int) {
+        if selectedReceiverIds.contains(receiverId) {
+            selectedReceiverIds.remove(receiverId)
+        } else {
+            selectedReceiverIds.insert(receiverId)
         }
     }
 }

@@ -67,8 +67,8 @@ struct CategoriesView: View {
             CategoryEditDialog(
                 category: nil,
                 parentCategories: viewModel.flatCategories,
-                onSave: { name, parentId, icon, color in
-                    viewModel.createCategory(name: name, parentId: parentId, color: color, icon: icon, iconUrl: nil)
+                onSave: { name, parentId, icon, color, iconUrl in
+                    viewModel.createCategory(name: name, parentId: parentId, color: color, icon: icon, iconUrl: iconUrl)
                 },
                 onDismiss: { viewModel.setCreateOpen(false) }
             )
@@ -77,8 +77,8 @@ struct CategoriesView: View {
             CategoryEditDialog(
                 category: FlatCategory(category: category, indent: 0),
                 parentCategories: viewModel.flatCategories.filter { $0.id != category.id },
-                onSave: { name, parentId, icon, color in
-                    viewModel.updateCategory(categoryId: category.id, name: name, parentId: parentId, color: color, icon: icon, iconUrl: nil)
+                onSave: { name, parentId, icon, color, iconUrl in
+                    viewModel.updateCategory(categoryId: category.id, name: name, parentId: parentId, color: color, icon: icon, iconUrl: iconUrl)
                 },
                 onDismiss: { viewModel.setEditCategory(nil) }
             )
@@ -99,7 +99,6 @@ struct CategoriesView: View {
     }
 }
 
-// 分类项视图
 struct CategoryItemView: View {
     let category: FlatCategory
     let onEdit: () -> Void
@@ -109,34 +108,25 @@ struct CategoryItemView: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            // 缩进
             if category.indent > 0 {
                 ForEach(0..<category.indent, id: \.self) { _ in
                     Spacer().frame(width: 16)
                 }
             }
 
-            // 图标
-            if let color = category.category.color {
-                Rectangle()
-                    .fill(Color(hex: color))
-                    .frame(width: 16, height: 16)
-                    .cornerRadius(4)
-            } else {
-                Rectangle()
-                    .fill(Color.sortisPrimary)
-                    .frame(width: 16, height: 16)
-                    .cornerRadius(4)
-            }
+            CategoryIconView(
+                icon: category.category.icon,
+                iconUrl: category.category.iconUrl,
+                size: 18,
+                cornerRadius: 4
+            )
 
-            // 名称
             Text(category.category.name)
                 .font(.system(size: 14))
                 .lineLimit(1)
 
             Spacer()
 
-            // 操作按钮
             Menu {
                 Button(action: onEdit) {
                     Label("编辑", systemImage: "pencil")
@@ -164,24 +154,21 @@ struct CategoryItemView: View {
     }
 }
 
-// 分类编辑对话框
 struct CategoryEditDialog: View {
     let category: FlatCategory?
     let parentCategories: [FlatCategory]
-    let onSave: (String, Int?, String?, String?) -> Void
+    let onSave: (String, Int?, String?, String?, String?) -> Void
     let onDismiss: () -> Void
 
     @State private var name: String = ""
     @State private var parentId: Int?
     @State private var icon: String = ""
     @State private var color: String = "#1677FF"
+    @State private var iconUrl: String = ""
 
     @Environment(\.dismiss) var dismiss
 
-    let defaultColors = [
-        "#1677FF", "#52C41A", "#FAAD14", "#F5222D", "#722ED1",
-        "#13C2C2", "#EB2F96", "#FA8C16", "#2F54EB", "#0052D9"
-    ]
+    private let iconOptions = categoryIcons.keys.sorted()
 
     var body: some View {
         NavigationView {
@@ -199,34 +186,43 @@ struct CategoryEditDialog: View {
                 }
 
                 Section(header: Text("图标和颜色")) {
-                    HStack {
-                        Text("图标")
-                        Spacer()
-                        Text(icon.isEmpty ? "默认" : getIconEmoji(icon))
-                            .foregroundColor(.secondary)
+                    Picker("预设图标", selection: $icon) {
+                        Text("无").tag("")
+                        ForEach(iconOptions, id: \.self) { iconName in
+                            Text("\(getIconEmoji(iconName)) \(iconName)")
+                                .tag(iconName)
+                        }
                     }
+
+                    TextField("自定义图标 URL", text: $iconUrl)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
 
                     HStack {
                         Text("颜色")
                         Spacer()
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
-                                ForEach(defaultColors, id: \.self) { c in
+                                ForEach(Color.categoryColors, id: \.self) { preset in
                                     Circle()
-                                        .fill(Color(hex: c))
+                                        .fill(Color(hex: preset))
                                         .frame(width: 24, height: 24)
                                         .overlay(
                                             Circle()
-                                                .stroke(Color.primary, lineWidth: color == c ? 2 : 0)
+                                                .stroke(Color.primary, lineWidth: color == preset ? 2 : 0)
                                         )
                                         .onTapGesture {
-                                            color = c
+                                            color = preset
                                         }
                                 }
                             }
                         }
                         .frame(width: 200)
                     }
+
+                    Text("预设图标和自定义图标 URL 只能二选一。")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
             }
             .navigationTitle(category == nil ? "新建分类" : "编辑分类")
@@ -234,24 +230,44 @@ struct CategoryEditDialog: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("取消") {
+                        onDismiss()
                         dismiss()
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("保存") {
-                        onSave(name, parentId, icon.isEmpty ? nil : icon, color)
+                        let trimmedColor = color.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let trimmedIconUrl = iconUrl.trimmingCharacters(in: .whitespacesAndNewlines)
+                        onSave(
+                            name.trimmingCharacters(in: .whitespacesAndNewlines),
+                            parentId,
+                            icon.isEmpty ? nil : icon,
+                            trimmedColor.isEmpty ? nil : trimmedColor,
+                            trimmedIconUrl.isEmpty ? nil : trimmedIconUrl
+                        )
                         dismiss()
                     }
-                    .disabled(name.isEmpty)
+                    .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
         }
         .onAppear {
-            if let category = category {
+            if let category {
                 name = category.category.name
                 parentId = category.category.parentId
                 icon = category.category.icon ?? ""
                 color = category.category.color ?? "#1677FF"
+                iconUrl = category.category.iconUrl ?? ""
+            }
+        }
+        .onChange(of: icon) { newValue in
+            if !newValue.isEmpty {
+                iconUrl = ""
+            }
+        }
+        .onChange(of: iconUrl) { newValue in
+            if !newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                icon = ""
             }
         }
     }

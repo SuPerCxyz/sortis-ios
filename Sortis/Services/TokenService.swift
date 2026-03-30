@@ -25,7 +25,7 @@ class TokenService {
         var body: [String: AnyEncodable] = [
             "name": AnyEncodable(name)
         ]
-        if let receiverIds = receiverIds {
+        if let receiverIds = receiverIds, !receiverIds.isEmpty {
             body["receiver_ids"] = AnyEncodable(receiverIds)
         }
         if let expiresInDays = expiresInDays {
@@ -46,14 +46,12 @@ class TokenService {
 
     // 吊销 Token
     func revokeToken(tokenId: Int) async throws -> Bool {
-        let _: [String: String] = try await client.post(path: "/api/tokens/\(tokenId)/revoke", body: Optional<Never>.none as Never?)
-        return true
+        try await client.postEmpty(path: "/api/tokens/\(tokenId)/revoke")
     }
 
     // 激活 Token
     func activateToken(tokenId: Int) async throws -> Bool {
-        let _: [String: String] = try await client.post(path: "/api/tokens/\(tokenId)/activate", body: Optional<Never>.none as Never?)
-        return true
+        try await client.postEmpty(path: "/api/tokens/\(tokenId)/activate")
     }
 
     // 删除 Token

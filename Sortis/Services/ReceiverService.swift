@@ -59,13 +59,12 @@ class ReceiverService {
 
     // 同步接收器
     func syncReceiver(receiverId: Int) async throws -> Bool {
-        let _: [String: String] = try await client.post(path: "/api/receivers/\(receiverId)/sync", body: Optional<Never>.none as Never?)
-        return true
+        try await client.postEmpty(path: "/api/receivers/\(receiverId)/sync")
     }
 
     // 切换接收器状态
     func toggleReceiver(receiverId: Int) async throws -> Receiver {
-        return try await client.post(path: "/api/receivers/\(receiverId)/toggle", body: Optional<Never>.none as Never?)
+        try await client.postWithoutBody(path: "/api/receivers/\(receiverId)/toggle")
     }
 
     // 删除接收器

@@ -88,6 +88,32 @@ class APIClient {
         return try await performRequest(request)
     }
 
+    // POST 请求（无请求体）
+    func postWithoutBody<T: Decodable>(path: String) async throws -> T {
+        guard let url = buildURL(path: path) else {
+            throw APIError.invalidURL
+        }
+
+        let request = buildRequest(url: url, method: "POST")
+        return try await performRequest(request)
+    }
+
+    // POST 请求（无响应体）
+    func postEmpty(path: String) async throws -> Bool {
+        guard let url = buildURL(path: path) else {
+            throw APIError.invalidURL
+        }
+
+        let request = buildRequest(url: url, method: "POST")
+        let (_, response) = try await session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.invalidResponse
+        }
+
+        return httpResponse.statusCode >= 200 && httpResponse.statusCode < 300
+    }
+
     // POST 请求（表单数据）
     func postForm<T: Decodable>(path: String, formData: [String: String]) async throws -> T {
         guard let url = buildURL(path: path) else {

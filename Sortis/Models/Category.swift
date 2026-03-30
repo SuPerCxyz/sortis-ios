@@ -37,6 +37,27 @@ struct Category: Identifiable, Decodable {
     }
 }
 
+extension Category {
+    func normalizedIconURL(serverUrl: String?) -> Category {
+        Category(
+            id: id,
+            name: name,
+            parentId: parentId,
+            level: level,
+            sortOrder: sortOrder,
+            color: color,
+            icon: icon,
+            iconUrl: normalizeCategoryIconUrl(serverUrl: serverUrl, iconUrl: iconUrl),
+            children: children?.map { $0.normalizedIconURL(serverUrl: serverUrl) },
+            unreadCount: unreadCount,
+            totalCount: totalCount,
+            readCount: readCount,
+            latestMessageTitle: latestMessageTitle,
+            latestMessageTime: latestMessageTime
+        )
+    }
+}
+
 // 分类树响应
 typealias CategoryTreeResponse = [Category]
 
@@ -89,4 +110,22 @@ func flattenCategories(_ categories: [Category], indent: Int = 0) -> [FlatCatego
         }
     }
     return result
+}
+
+func normalizeCategoryIconUrl(serverUrl: String?, iconUrl: String?) -> String? {
+    guard let iconUrl, !iconUrl.isEmpty else { return nil }
+
+    let normalizedPath: String
+    if iconUrl.hasPrefix("/api/attachments/file/") {
+        normalizedPath = iconUrl.replacingOccurrences(of: "/api/attachments/file/", with: "/public/attachments/file/")
+    } else {
+        normalizedPath = iconUrl
+    }
+
+    if normalizedPath.hasPrefix("http://") || normalizedPath.hasPrefix("https://") {
+        return normalizedPath
+    }
+
+    let trimmedBase = serverUrl?.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "/")) ?? ""
+    return trimmedBase.isEmpty ? normalizedPath : "\(trimmedBase)\(normalizedPath)"
 }

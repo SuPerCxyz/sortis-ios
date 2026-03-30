@@ -122,5 +122,44 @@ let categoryIcons: [String: String] = [
 
 func getIconEmoji(_ icon: String?) -> String {
     guard let icon = icon else { return "📁" }
-    return categoryIcons[icon] ?? "📁"
+    return categoryIcons[icon] ?? icon
+}
+
+struct CategoryIconView: View {
+    let icon: String?
+    let iconUrl: String?
+    let size: CGFloat
+    let cornerRadius: CGFloat
+
+    init(icon: String?, iconUrl: String?, size: CGFloat = 18, cornerRadius: CGFloat = 4) {
+        self.icon = icon
+        self.iconUrl = iconUrl
+        self.size = size
+        self.cornerRadius = cornerRadius
+    }
+
+    var body: some View {
+        if let iconUrl, let url = URL(string: iconUrl) {
+            AsyncImage(url: url) { phase in
+                switch phase {
+                case .success(let image):
+                    image
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: size, height: size)
+                        .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+                default:
+                    fallbackIcon
+                }
+            }
+        } else {
+            fallbackIcon
+        }
+    }
+
+    private var fallbackIcon: some View {
+        Text(getIconEmoji(icon))
+            .font(.system(size: size))
+            .frame(width: size, height: size)
+    }
 }

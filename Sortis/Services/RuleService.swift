@@ -79,7 +79,7 @@ class RuleService {
 
     // 切换规则状态
     func toggleRule(ruleId: Int) async throws -> Rule {
-        return try await client.post(path: "/api/rules/\(ruleId)/toggle", body: Optional<Never>.none as Never?)
+        try await client.postWithoutBody(path: "/api/rules/\(ruleId)/toggle")
     }
 
     // 删除规则

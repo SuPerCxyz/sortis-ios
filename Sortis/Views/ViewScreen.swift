@@ -47,7 +47,7 @@ struct CategoryNavigationView: View {
                     )
                     StatItem(
                         label: "分类",
-                        value: viewModel.categories.count,
+                        value: flattenCategories(viewModel.categories).count,
                         color: .sortisSuccess
                     )
                 }
@@ -69,7 +69,6 @@ struct CategoryNavigationView: View {
                         name: "全部信息",
                         icon: "📋",
                         iconUrl: nil,
-                        serverUrl: nil,
                         level: 0,
                         isSelected: viewModel.selectedCategory == nil,
                         totalCount: viewModel.total,
@@ -82,9 +81,8 @@ struct CategoryNavigationView: View {
                     ForEach(viewModel.categories, id: \.id) { category in
                         CategoryTreeItem(
                             name: category.name,
-                            icon: getIconEmoji(category.icon),
+                            icon: category.icon,
                             iconUrl: category.iconUrl,
-                            serverUrl: UserDefaults.standard.string(forKey: "serverUrl"),
                             level: (category.level - 1).clamped(to: 0...100),
                             isSelected: viewModel.selectedCategory == category.id,
                             totalCount: category.totalCount,
@@ -199,9 +197,8 @@ struct CategoryMessagesView: View {
 // 分类树项
 struct CategoryTreeItem: View {
     let name: String
-    let icon: String
+    let icon: String?
     let iconUrl: String?
-    let serverUrl: String?
     let level: Int
     let isSelected: Bool
     let totalCount: Int
@@ -219,9 +216,12 @@ struct CategoryTreeItem: View {
                     }
                 }
 
-                // 图标
-                Text(icon)
-                    .font(.system(size: 16))
+                CategoryIconView(
+                    icon: icon,
+                    iconUrl: iconUrl,
+                    size: 18,
+                    cornerRadius: 4
+                )
 
                 // 名称
                 Text(name)

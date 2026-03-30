@@ -154,106 +154,87 @@ struct DashboardView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 16) {
-                // 统计卡片
+            VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("最近 7 天概览")
+                        .font(.system(size: 22, weight: .bold))
+                    Text("布局对齐 web 仪表盘，统计与趋势分区显示")
+                        .font(.system(size: 13))
+                        .foregroundColor(.secondary)
+                }
+                .padding(.horizontal)
+
                 HStack(spacing: 12) {
-                    StatCard(title: "总信息", value: "\(viewModel.total)", color: .sortisPrimary)
+                    StatCard(title: "总信息", value: "\(viewModel.total)", color: .sortisInfo)
                     StatCard(title: "未读", value: "\(viewModel.unread)", color: .sortisError)
+                }
+                .padding(.horizontal)
+
+                HStack(spacing: 12) {
                     StatCard(title: "星标", value: "\(viewModel.starred)", color: .sortisWarning)
                     StatCard(title: "分类", value: "\(viewModel.categoryCount)", color: .sortisSuccess)
                 }
                 .padding(.horizontal)
 
-                // 消息趋势
-                VStack(alignment: .leading) {
-                    Text("消息趋势")
-                        .font(.headline)
-                        .padding(.horizontal)
-
-                    CardView {
-                        if viewModel.activity.isEmpty {
-                            Text("暂无趋势数据")
-                                .foregroundColor(.secondary)
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                        } else {
-                            VStack(spacing: 8) {
-                                ForEach(viewModel.activity.suffix(7), id: \.date) { item in
-                                    HStack {
-                                        Text(formatDate(item.date))
-                                            .font(.caption)
-                                            .frame(width: 60, alignment: .leading)
-                                        Text("信息 \(item.messageCount) · 已读 \(item.readCount)")
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                        Spacer()
-                                    }
-                                    .padding(.horizontal)
-                                    .padding(.vertical, 4)
-                                    .background(Color.sortisPrimary.opacity(0.05))
-                                    .cornerRadius(6)
-                                }
-                            }
-                            .padding()
-                        }
-                    }
+                HStack(spacing: 8) {
+                    DashboardSummaryChip(
+                        title: "30天总信息",
+                        value: "\(viewModel.totalMessages30d)",
+                        color: .sortisPrimary
+                    )
+                    DashboardSummaryChip(
+                        title: "30天已读",
+                        value: "\(viewModel.totalRead30d)",
+                        color: .sortisSuccess
+                    )
+                    DashboardSummaryChip(
+                        title: "30天未读",
+                        value: "\(viewModel.totalUnread30d)",
+                        color: .sortisError
+                    )
                 }
                 .padding(.horizontal)
 
-                // 分类统计
-                VStack(alignment: .leading) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("信息趋势")
+                        .font(.system(size: 17, weight: .semibold))
+                        .padding(.horizontal)
+
+                    CardView {
+                        if viewModel.isLoading && viewModel.activity.isEmpty {
+                            DashboardLoadingCard()
+                        } else {
+                            DashboardTrendCard(activity: viewModel.activity)
+                        }
+                    }
+                    .padding(.horizontal)
+                }
+
+                VStack(alignment: .leading, spacing: 10) {
                     Text("分类统计")
-                        .font(.headline)
+                        .font(.system(size: 17, weight: .semibold))
                         .padding(.horizontal)
 
                     CardView {
-                        if viewModel.categoryStats.isEmpty {
-                            Text("暂无分类统计数据")
-                                .foregroundColor(.secondary)
-                                .frame(maxWidth: .infinity)
-                                .padding()
+                        if viewModel.isLoading && viewModel.categoryStats.isEmpty {
+                            DashboardLoadingCard()
                         } else {
-                            VStack(spacing: 8) {
-                                ForEach(viewModel.categoryStats.prefix(8), id: \.id) { item in
-                                    HStack {
-                                        Text("\(item.fullPath)")
-                                            .font(.caption)
-                                            .lineLimit(1)
-                                        Spacer()
-                                        Text("信息 \(item.messageCount) · 未读 \(item.unreadCount)")
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                    }
-                                    .padding(.horizontal)
-                                    .padding(.vertical, 4)
-                                    .background(Color.sortisPrimary.opacity(0.05))
-                                    .cornerRadius(6)
-                                }
-                            }
-                            .padding()
+                            DashboardCategoryStatsCard(categories: viewModel.categoryStats)
                         }
                     }
+                    .padding(.horizontal)
                 }
-                .padding(.horizontal)
             }
             .padding(.vertical)
         }
         .refreshable {
-            await viewModel.loadStats()
+            await viewModel.refresh()
         }
         .onAppear {
             Task {
                 await viewModel.loadStats()
             }
         }
-    }
-
-    private func formatDate(_ dateStr: String) -> String {
-        let parts = dateStr.split(separator: "-")
-        if parts.count >= 3 {
-            return "\(parts[1])-\(parts[2])"
-        }
-        return dateStr.suffix(5).description
     }
 }
 
@@ -264,29 +245,62 @@ class DashboardViewModel: ObservableObject {
     @Published var categoryCount: Int = 0
     @Published var activity: [ActivityDailyStat] = []
     @Published var categoryStats: [CategoryStatsItem] = []
+    @Published var isLoading: Bool = false
+    @Published var isRefreshing: Bool = false
 
     private let statsService = StatsService()
     private let categoryService = CategoryService()
 
     @MainActor
     func loadStats() async {
+        isLoading = true
+        await fetchDashboardData()
+        isLoading = false
+    }
+
+    @MainActor
+    func refresh() async {
+        isRefreshing = true
+        await fetchDashboardData()
+        isRefreshing = false
+    }
+
+    @MainActor
+    private func fetchDashboardData() async {
         do {
-            let overview = try await statsService.getStatsOverview(days: 7)
+            async let overviewTask = statsService.getStatsOverview(days: 7)
+            async let categoryTreeTask = categoryService.getCategoryTree(timeRange: "7d")
+            async let activityTask = statsService.getStatsActivity(days: 30)
+            async let categoryStatsTask = statsService.getStatsCategories()
+
+            let overview = try await overviewTask
             total = overview.messageStats.total
             unread = overview.messageStats.unread
             starred = overview.messageStats.starred
 
-            let categories = try await categoryService.getCategoryTree(timeRange: "7d")
+            let categories = try await categoryTreeTask
             categoryCount = categories.count
 
-            let activityResponse = try await statsService.getStatsActivity(days: 30)
+            let activityResponse = try await activityTask
             activity = activityResponse.daily
 
-            categoryStats = try await statsService.getStatsCategories()
+            categoryStats = try await categoryStatsTask
                 .sorted { $0.messageCount > $1.messageCount }
         } catch {
             print("Failed to load dashboard stats: \(error)")
         }
+    }
+
+    var totalMessages30d: Int {
+        activity.reduce(0) { $0 + $1.messageCount }
+    }
+
+    var totalRead30d: Int {
+        activity.reduce(0) { $0 + $1.readCount }
+    }
+
+    var totalUnread30d: Int {
+        activity.reduce(0) { $0 + max(0, $1.messageCount - $1.readCount) }
     }
 }
 
@@ -297,7 +311,7 @@ struct StatCard: View {
     let color: Color
 
     var body: some View {
-        VStack {
+        VStack(spacing: 6) {
             Text(value)
                 .font(.title)
                 .fontWeight(.bold)
@@ -311,6 +325,141 @@ struct StatCard: View {
         .background(color.opacity(0.1))
         .cornerRadius(10)
     }
+}
+
+struct DashboardSummaryChip: View {
+    let title: String
+    let value: String
+    let color: Color
+
+    var body: some View {
+        VStack(spacing: 6) {
+            Text(title)
+                .font(.system(size: 11))
+                .foregroundColor(.secondary)
+                .lineLimit(1)
+            Text(value)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(color)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+        .background(color.opacity(0.1))
+        .cornerRadius(10)
+    }
+}
+
+struct DashboardLoadingCard: View {
+    var body: some View {
+        VStack {
+            ProgressView()
+                .frame(maxWidth: .infinity, minHeight: 180)
+        }
+        .padding(.horizontal, 16)
+    }
+}
+
+struct DashboardTrendCard: View {
+    let activity: [ActivityDailyStat]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if activity.isEmpty {
+                Text("暂无趋势数据")
+                    .font(.system(size: 13))
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(16)
+            } else {
+                ForEach(Array(activity.suffix(7).enumerated()), id: \.element.date) { index, item in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(formatDashboardDate(item.date))
+                            .font(.system(size: 12, weight: .medium))
+                        Text("信息 \(item.messageCount) · 已读 \(item.readCount) · 未读 \(max(0, item.messageCount - item.readCount))")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .background(Color(.systemGray6))
+                    .cornerRadius(10)
+                    .padding(.horizontal, 16)
+                    .padding(.top, index == 0 ? 16 : 0)
+                }
+
+                HStack(spacing: 12) {
+                    DashboardSummaryChip(
+                        title: "30天总信息",
+                        value: "\(activity.reduce(0) { $0 + $1.messageCount })",
+                        color: .sortisPrimary
+                    )
+                    DashboardSummaryChip(
+                        title: "30天已读",
+                        value: "\(activity.reduce(0) { $0 + $1.readCount })",
+                        color: .sortisSuccess
+                    )
+                    DashboardSummaryChip(
+                        title: "30天未读",
+                        value: "\(activity.reduce(0) { $0 + max(0, $1.messageCount - $1.readCount) })",
+                        color: .sortisError
+                    )
+                }
+                .padding(16)
+            }
+        }
+    }
+}
+
+struct DashboardCategoryStatsCard: View {
+    let categories: [CategoryStatsItem]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if categories.isEmpty {
+                Text("暂无分类统计数据")
+                    .font(.system(size: 13))
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(16)
+            } else {
+                ForEach(Array(categories.prefix(8).enumerated()), id: \.element.id) { index, category in
+                    HStack(alignment: .top, spacing: 8) {
+                        Text("\(index + 1).")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
+                            .frame(width: 24, alignment: .leading)
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(category.fullPath.isEmpty ? category.name : category.fullPath)
+                                .font(.system(size: 13, weight: .medium))
+                                .lineLimit(1)
+                            Text("信息 \(category.messageCount) · 未读 \(category.unreadCount)")
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
+                        }
+
+                        Spacer()
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .background(Color(.systemGray6))
+                    .cornerRadius(10)
+                    .padding(.horizontal, 16)
+                    .padding(.top, index == 0 ? 16 : 0)
+                }
+                Spacer(minLength: 16)
+            }
+        }
+    }
+}
+
+private func formatDashboardDate(_ dateStr: String) -> String {
+    let parts = dateStr.split(separator: "-")
+    if parts.count >= 3 {
+        return "\(parts[1])-\(parts[2])"
+    }
+    return String(dateStr.suffix(5))
 }
 
 // 卡片视图

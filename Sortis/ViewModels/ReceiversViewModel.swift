@@ -10,6 +10,7 @@ import Foundation
 @MainActor
 class ReceiversViewModel: ObservableObject {
     @Published var receivers: [Receiver] = []
+    @Published var tokens: [ApiToken] = []
     @Published var isLoading: Bool = false
     @Published var isRefreshing: Bool = false
     @Published var error: String?
@@ -19,20 +20,21 @@ class ReceiversViewModel: ObservableObject {
     @Published var isCreateOpen: Bool = false
 
     private let receiverService = ReceiverService()
+    private let tokenService = TokenService()
 
-    init() {
-        loadReceivers()
+    var serverUrl: String? {
+        UserDefaults.standard.string(forKey: "serverUrl")
     }
 
-    func loadReceivers() {
+    init() {
+        loadData()
+    }
+
+    func loadData() {
         Task {
             isLoading = true
             error = nil
-            do {
-                receivers = try await receiverService.getReceivers()
-            } catch let err {
-                error = err.localizedDescription
-            }
+            await fetchData()
             isLoading = false
         }
     }
@@ -41,12 +43,19 @@ class ReceiversViewModel: ObservableObject {
         Task {
             isRefreshing = true
             error = nil
-            do {
-                receivers = try await receiverService.getReceivers()
-            } catch let err {
-                error = err.localizedDescription
-            }
+            await fetchData()
             isRefreshing = false
+        }
+    }
+
+    private func fetchData() async {
+        do {
+            async let receiversTask = receiverService.getReceivers()
+            async let tokensTask = tokenService.getTokens()
+            receivers = try await receiversTask
+            tokens = try await tokensTask
+        } catch let err {
+            error = err.localizedDescription
         }
     }
 
@@ -62,24 +71,72 @@ class ReceiversViewModel: ObservableObject {
         isCreateOpen = open
     }
 
-    func createReceiver(name: String, type: String, config: [String: AnyEncodable]?, syncInterval: Int?) {
+    func createReceiver(
+        name: String,
+        type: String,
+        syncInterval: Int,
+        config: [String: AnyEncodable]?,
+        selectedTokenId: Int?,
+        tokenName: String?,
+        tokenDescription: String?,
+        tokenExpiresInDays: Int?
+    ) {
         Task {
             do {
-                _ = try await receiverService.createReceiver(name: name, type: type, config: config, syncInterval: syncInterval)
+                let receiver = try await receiverService.createReceiver(
+                    name: name,
+                    type: type,
+                    config: config,
+                    syncInterval: type == "http_token" || type == "websocket" ? nil : syncInterval
+                )
+
+                if (type == "http_token" || type == "websocket"), let selectedTokenId {
+                    _ = try await tokenService.bindTokenToReceiver(tokenId: selectedTokenId, receiverId: receiver.id)
+                } else if type == "http_token", let tokenName, !tokenName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    _ = try await tokenService.createToken(
+                        name: tokenName,
+                        receiverIds: [receiver.id],
+                        expiresInDays: tokenExpiresInDays,
+                        description: tokenDescription
+                    )
+                }
+
                 isCreateOpen = false
-                loadReceivers()
+                await fetchData()
             } catch let err {
                 error = err.localizedDescription
             }
         }
     }
 
-    func updateReceiver(receiverId: Int, name: String, config: [String: AnyEncodable]?, syncInterval: Int?) {
+    func updateReceiver(
+        receiverId: Int,
+        name: String,
+        syncInterval: Int,
+        config: [String: AnyEncodable]?,
+        selectedTokenId: Int?
+    ) {
         Task {
             do {
-                _ = try await receiverService.updateReceiver(receiverId: receiverId, name: name, config: config, syncInterval: syncInterval)
+                let updatedReceiver = try await receiverService.updateReceiver(
+                    receiverId: receiverId,
+                    name: name,
+                    config: config,
+                    syncInterval: editReceiver?.type == "http_token" || editReceiver?.type == "websocket" ? nil : syncInterval
+                )
+
+                if updatedReceiver.type == "http_token" || updatedReceiver.type == "websocket" {
+                    if let selectedTokenId {
+                        _ = try await tokenService.bindTokenToReceiver(tokenId: selectedTokenId, receiverId: receiverId)
+                    } else if let currentToken = boundToken(for: updatedReceiver) {
+                        let remainingReceiverIds = (currentToken.receiverIds ?? (currentToken.receiverId.map { [$0] } ?? []))
+                            .filter { $0 != receiverId }
+                        _ = try await tokenService.bindTokenToReceivers(tokenId: currentToken.id, receiverIds: remainingReceiverIds)
+                    }
+                }
+
                 editReceiver = nil
-                loadReceivers()
+                await fetchData()
             } catch let err {
                 error = err.localizedDescription
             }
@@ -90,7 +147,7 @@ class ReceiversViewModel: ObservableObject {
         Task {
             do {
                 _ = try await receiverService.syncReceiver(receiverId: receiverId)
-                loadReceivers()
+                await fetchData()
             } catch let err {
                 error = err.localizedDescription
             }
@@ -115,7 +172,7 @@ class ReceiversViewModel: ObservableObject {
             do {
                 _ = try await receiverService.deleteReceiver(receiverId: receiverId)
                 actionReceiver = nil
-                loadReceivers()
+                await fetchData()
             } catch let err {
                 error = err.localizedDescription
             }
@@ -128,6 +185,12 @@ class ReceiversViewModel: ObservableObject {
             return true
         } catch {
             return false
+        }
+    }
+
+    func boundToken(for receiver: Receiver) -> ApiToken? {
+        tokens.first {
+            $0.isActive && (($0.receiverIds ?? []).contains(receiver.id) || $0.receiverId == receiver.id)
         }
     }
 }
