@@ -48,6 +48,9 @@
 		A0000001000000000000039 /* HelpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000002000000000000039 /* HelpView.swift */; };
 		A0000001000000000000040 /* MessageCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000002000000000000040 /* MessageCard.swift */; };
 		A0000001000000000000041 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A0000002000000000000041 /* Assets.xcassets */; };
+		A0000001000000000000042 /* CategoryIconPresets.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000002000000000000043 /* CategoryIconPresets.swift */; };
+		A0000001000000000000043 /* CategoryIconView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000002000000000000044 /* CategoryIconView.swift */; };
+		A0000001000000000000044 /* CategoryIconPickerModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000002000000000000045 /* CategoryIconPickerModel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -93,6 +96,9 @@
 		A0000002000000000000040 /* MessageCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageCard.swift; sourceTree = "<group>"; };
 		A0000002000000000000041 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A0000002000000000000042 /* Sortis.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Sortis.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A0000002000000000000043 /* CategoryIconPresets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryIconPresets.swift; sourceTree = "<group>"; };
+		A0000002000000000000044 /* CategoryIconView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryIconView.swift; sourceTree = "<group>"; };
+		A0000002000000000000045 /* CategoryIconPickerModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryIconPickerModel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -123,6 +129,7 @@
 				A0000004000000000000006 /* ViewModels */,
 				A0000004000000000000007 /* Views */,
 				A0000004000000000000008 /* Components */,
+				A0000004000000000000011 /* CategoryIcon */,
 				A0000004000000000000009 /* Theme */,
 				A0000004000000000000010 /* Utils */,
 				A0000002000000000000041 /* Assets.xcassets */,
@@ -224,6 +231,16 @@
 				A0000002000000000000006 /* DateFormatter.swift */,
 			);
 			path = Utils;
+			sourceTree = "<group>";
+		};
+		A0000004000000000000011 /* CategoryIcon */ = {
+			isa = PBXGroup;
+			children = (
+				A0000002000000000000043 /* CategoryIconPresets.swift */,
+				A0000002000000000000044 /* CategoryIconView.swift */,
+				A0000002000000000000045 /* CategoryIconPickerModel.swift */,
+			);
+			path = CategoryIcon;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -335,6 +352,9 @@
 				A0000001000000000000038 /* SettingsView.swift in Sources */,
 				A0000001000000000000039 /* HelpView.swift in Sources */,
 				A0000001000000000000040 /* MessageCard.swift in Sources */,
+				A0000001000000000000042 /* CategoryIconPresets.swift in Sources */,
+				A0000001000000000000043 /* CategoryIconView.swift in Sources */,
+				A0000001000000000000044 /* CategoryIconPickerModel.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
