@@ -51,15 +51,6 @@ struct AppTheme {
         static let extraLarge: CGFloat = 24
     }
 }
-enum AppAssets {
-    static var bundle: Bundle {
-        #if SWIFT_PACKAGE
-        return .module
-        #else
-        return .main
-        #endif
-    }
-}
 struct CategoryIconOption: Hashable {
     let value: String
     let label: String
