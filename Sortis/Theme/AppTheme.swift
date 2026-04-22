@@ -120,7 +120,7 @@ private func categoryIconSymbolName(for icon: String?) -> String {
     case "phone": return "iphone"
     case "email": return "envelope.fill"
     case "social", "chat": return "message.fill"
-    case "flag": return "flag.fill"
+    case "flag", "release": return "flag.fill"
     case "moon", "cloud", "weather": return "cloud.fill"
     case "utilities": return "building.columns.fill"
     case "water": return "drop.fill"
