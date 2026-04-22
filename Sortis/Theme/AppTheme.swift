@@ -133,13 +133,13 @@ private func categoryIconTint(for icon: String?) -> Color {
     let key = normalized.hasPrefix("folder") ? "folder" : normalized
     switch key {
     case "folder", "work", "knowledge", "idea", "star", "sun": return Color(hex: "FAAD14")
-    case "business", "api", "meeting", "resume", "document", "approval", "task", "recruiting", "client", "ops", "report", "tools", "bank", "personal", "travel", "delivery", "flight", "bus", "car", "repair", "study", "learning", "reading", "reading_plan", "book", "skill", "technology", "tech", "code", "photo", "camera", "news", "calendar", "clock", "link", "email": return .sortisInfo
-    case "finance", "economy", "checklist", "check", "sport", "sports", "fitness", "plant", "tree": return .sortisSuccess
+    case "business", "api", "meeting", "resume", "document", "task", "recruiting", "client", "ops", "report", "tools", "bank", "personal", "travel", "delivery", "flight", "bus", "car", "repair", "study", "learning", "reading", "reading_plan", "book", "skill", "technology", "tech", "code", "photo", "camera", "news", "calendar", "clock", "link", "email", "blog", "ecommerce", "note", "writing": return .sortisInfo
+    case "finance", "economy", "approval", "checklist", "check", "sport", "sports", "fitness", "plant", "tree": return .sortisSuccess
     case "security", "health", "medical", "fire", "location", "flag": return .sortisError
     case "project", "investment", "community", "friend", "shopping", "decoration", "game", "play", "ai", "music", "music_note", "podcast", "media", "release", "live": return Color(hex: "722ED1")
-    case "contract", "legal", "server", "database", "tax", "analytics", "testing", "ticketing", "medicine", "subway", "train", "hotel", "utilities", "furniture", "course", "education", "school", "university", "science", "research", "phone", "social", "chat", "water": return Color(hex: "13C2C2")
+    case "contract", "legal", "server", "database", "tax", "analytics", "testing", "medicine", "subway", "train", "hotel", "utilities", "furniture", "course", "education", "school", "university", "science", "research", "phone", "social", "chat", "water": return Color(hex: "13C2C2")
     case "team", "family", "parenting", "baby", "heart", "entertainment", "movie", "film", "album", "art", "gift", "flower", "pet", "animal": return Color(hex: "EB2F96")
-    case "invoice", "ticket", "monitoring", "life", "food", "takeaway", "recipe", "coffee", "cafe", "cooking", "deal", "home", "house", "shop", "notification", "warning": return Color(hex: "FA8C16")
+    case "invoice", "ticket", "monitoring", "life", "food", "takeaway", "recipe", "coffee", "cafe", "cooking", "deal", "home", "house", "shop", "ticketing", "notification", "warning": return Color(hex: "FA8C16")
     case "moon", "cloud", "weather": return Color(hex: "597EF7")
     default: return Color(hex: "FAAD14")
     }
