@@ -6,6 +6,16 @@
 //
 import SwiftUI
 
+enum AppAssets {
+    static var bundle: Bundle {
+        #if SWIFT_PACKAGE
+        return .module
+        #else
+        return .main
+        #endif
+    }
+}
+
 struct AppTheme {
     // 抽屉菜单宽度
     static let drawerWidth: CGFloat = 220
