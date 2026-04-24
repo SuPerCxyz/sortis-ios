@@ -54,17 +54,17 @@ enum MenuItem: String, CaseIterable, Identifiable {
         }
     }
 
-    var icon: String {
+    var iconKind: SortisSidebarIconKind {
         switch self {
-        case .view: return "eye"
-        case .dashboard: return "square.grid.2x2"
-        case .messages: return "envelope"
-        case .categories: return "folder"
-        case .rules: return "line.3.horizontal.decrease.circle"
-        case .receivers: return "app.connected.to.app.below.fill"
-        case .tokens: return "key"
-        case .settings: return "gear"
-        case .help: return "questionmark.circle"
+        case .view: return .view
+        case .dashboard: return .dashboard
+        case .messages: return .messages
+        case .categories: return .categories
+        case .rules: return .rules
+        case .receivers: return .receivers
+        case .tokens: return .tokens
+        case .settings: return .settings
+        case .help: return .help
         }
     }
 }

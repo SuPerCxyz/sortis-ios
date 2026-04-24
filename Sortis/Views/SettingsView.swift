@@ -19,9 +19,25 @@ struct SettingsView: View {
         List {
             // 账户信息
             Section(header: Text("账户信息")) {
-                LabeledContent("邮箱") {
+                LabeledContent {
                     Text(viewModel.username)
                         .foregroundColor(.secondary)
+                } label: {
+                    HStack(spacing: 10) {
+                        SortisSidebarIcon(kind: .userProfile, size: 18, color: .secondary)
+                        Text("邮箱")
+                    }
+                }
+
+                Button(action: {
+                    viewModel.draftEmail = viewModel.username
+                    viewModel.showEmailDialog = true
+                }) {
+                    HStack(spacing: 10) {
+                        SortisSidebarIcon(kind: .messages, size: 18, color: .secondary)
+                        Text("更新邮箱")
+                        Spacer()
+                    }
                 }
 
                 LabeledContent("服务器") {
@@ -30,8 +46,14 @@ struct SettingsView: View {
                         .lineLimit(1)
                 }
 
-                Button("修改密码") {
+                Button(action: {
                     viewModel.showPasswordDialog = true
+                }) {
+                    HStack(spacing: 10) {
+                        SortisSidebarIcon(kind: .lockKeyhole, size: 18, color: .secondary)
+                        Text("修改密码")
+                        Spacer()
+                    }
                 }
             }
 
@@ -76,8 +98,14 @@ struct SettingsView: View {
                 }
                 .foregroundColor(.red)
 
-                Button("删除账户") {
+                Button(action: {
                     viewModel.showDeleteDialog = true
+                }) {
+                    HStack(spacing: 10) {
+                        SortisSidebarIcon(kind: .trashBinMinimalistic, size: 18, color: .red)
+                        Text("删除账户")
+                        Spacer()
+                    }
                 }
                 .foregroundColor(.red)
             }
@@ -86,6 +114,9 @@ struct SettingsView: View {
             ChangePasswordSheet(
                 onSuccess: { }
             )
+        }
+        .sheet(isPresented: $viewModel.showEmailDialog) {
+            UpdateEmailSheet(viewModel: viewModel)
         }
         .alert("确认退出", isPresented: $viewModel.showLogoutDialog) {
             Button("取消", role: .cancel) {}
@@ -100,10 +131,21 @@ struct SettingsView: View {
             Button("取消", role: .cancel) {}
             Button("删除", role: .destructive) {
                 viewModel.deleteAccount()
-                appState.isLoggedIn = false
             }
         } message: {
             Text("删除账户将清除所有数据，此操作不可撤销！")
+        }
+        .alert("提示", isPresented: Binding(
+            get: { viewModel.feedbackMessage != nil },
+            set: { if !$0 { viewModel.feedbackMessage = nil } }
+        )) {
+            Button("确定", role: .cancel) {
+                if viewModel.feedbackMessage == "账户已删除" {
+                    appState.isLoggedIn = false
+                }
+            }
+        } message: {
+            Text(viewModel.feedbackMessage ?? "")
         }
         .alert("缓存已清除", isPresented: $showClearCacheSuccess) {
             Button("确定", role: .cancel) {}
@@ -125,6 +167,47 @@ struct SettingsView: View {
     }
 }
 
+struct UpdateEmailSheet: View {
+    @ObservedObject var viewModel: SettingsViewModel
+    @Environment(\.dismiss) var dismiss
+
+    var body: some View {
+        NavigationView {
+            Form {
+                Section(header: Text("邮箱")) {
+                    SortisSettingsIconFieldRow(iconKind: .messages) {
+                        TextField("", text: $viewModel.draftEmail)
+                            .sortisCenteredPlaceholder("请输入邮箱", isEmpty: viewModel.draftEmail.isEmpty)
+                            .keyboardType(.emailAddress)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                    }
+                    .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
+                }
+            }
+            .navigationTitle("更新邮箱")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("取消") {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("保存") {
+                        viewModel.updateEmail()
+                    }
+                    .disabled(
+                        viewModel.isSubmitting ||
+                        viewModel.draftEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                        viewModel.draftEmail == viewModel.username
+                    )
+                }
+            }
+        }
+    }
+}
+
 // 修改密码弹窗
 struct ChangePasswordSheet: View {
     let onSuccess: () -> Void
@@ -142,12 +225,24 @@ struct ChangePasswordSheet: View {
         NavigationView {
             Form {
                 Section(header: Text("当前密码")) {
-                    SecureField("输入当前密码", text: $currentPassword)
+                    SortisSettingsIconFieldRow(iconKind: .lockKeyhole) {
+                        SecureField("", text: $currentPassword)
+                            .sortisCenteredPlaceholder("输入当前密码", isEmpty: currentPassword.isEmpty)
+                    }
+                    .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
                 }
 
                 Section(header: Text("新密码")) {
-                    SecureField("输入新密码", text: $newPassword)
-                    SecureField("确认新密码", text: $confirmPassword)
+                    SortisSettingsIconFieldRow(iconKind: .lockKeyhole) {
+                        SecureField("", text: $newPassword)
+                            .sortisCenteredPlaceholder("输入新密码", isEmpty: newPassword.isEmpty)
+                    }
+                    .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
+                    SortisSettingsIconFieldRow(iconKind: .lockKeyhole) {
+                        SecureField("", text: $confirmPassword)
+                            .sortisCenteredPlaceholder("确认新密码", isEmpty: confirmPassword.isEmpty)
+                    }
+                    .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
                 }
 
                 if let error = errorMessage {
@@ -211,5 +306,29 @@ struct ChangePasswordSheet: View {
                 }
             }
         }
+    }
+}
+
+private struct SortisSettingsIconFieldRow<Content: View>: View {
+    let iconKind: SortisSidebarIconKind
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        HStack(spacing: 10) {
+            SortisSidebarIcon(kind: iconKind, size: 18, color: .secondary)
+                .frame(width: 18, height: 18)
+            content()
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 11)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color(.systemBackground))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color(.separator), lineWidth: 1)
+        )
     }
 }

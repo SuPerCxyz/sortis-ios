@@ -17,6 +17,8 @@ struct ApiToken: Identifiable, Decodable {
     let receiverIds: [Int]?
     let receiverNames: [String]?
     let isActive: Bool
+    let status: String?
+    let isExpired: Bool?
     let expiresAt: String?
     let lastUsedAt: String?
     let createdAt: String?
@@ -24,6 +26,48 @@ struct ApiToken: Identifiable, Decodable {
     // Computed property for display
     var token: String {
         return plainToken ?? tokenPreview ?? ""
+    }
+
+    var runtimeStatus: String {
+        if status == "expired" || isExpired == true {
+            return "expired"
+        }
+        if status == "paused" {
+            return "paused"
+        }
+        if status == "active" {
+            return "active"
+        }
+        return isActive ? "active" : "paused"
+    }
+
+    var statusText: String {
+        switch runtimeStatus {
+        case "active":
+            return "运行中"
+        case "paused":
+            return "已暂停"
+        case "expired":
+            return "已过期"
+        default:
+            return runtimeStatus
+        }
+    }
+
+    var isUsable: Bool {
+        runtimeStatus == "active"
+    }
+
+    var canToggleAction: Bool {
+        runtimeStatus != "expired"
+    }
+
+    var toggleActionLabel: String {
+        runtimeStatus == "paused" ? "恢复" : "暂停"
+    }
+
+    var toggleActionSystemImage: String {
+        runtimeStatus == "paused" ? "play.fill" : "pause.fill"
     }
 
     enum CodingKeys: String, CodingKey {
@@ -34,6 +78,8 @@ struct ApiToken: Identifiable, Decodable {
         case receiverIds = "receiver_ids"
         case receiverNames = "receiver_names"
         case isActive = "is_active"
+        case status
+        case isExpired = "is_expired"
         case expiresAt = "expires_at"
         case lastUsedAt = "last_used_at"
         case createdAt = "created_at"
@@ -51,6 +97,8 @@ struct TokenCreateResponse: Decodable {
     let receiverNames: [String]?
     let expiresAt: String?
     let isActive: Bool
+    let status: String?
+    let isExpired: Bool?
     let lastUsedAt: String?
     let createdAt: String?
     let token: String
@@ -64,6 +112,8 @@ struct TokenCreateResponse: Decodable {
         case receiverNames = "receiver_names"
         case expiresAt = "expires_at"
         case isActive = "is_active"
+        case status
+        case isExpired = "is_expired"
         case lastUsedAt = "last_used_at"
         case createdAt = "created_at"
     }

@@ -23,6 +23,8 @@ class RulesViewModel: ObservableObject {
     @Published var pageSize: Int = 20
     @Published var total: Int = 0
     @Published var totalPages: Int = 0
+    @Published var searchQuery: String = ""
+    @Published var searchField: String = "all"
 
     private var allRules: [Rule] = []
 
@@ -47,17 +49,50 @@ class RulesViewModel: ObservableObject {
         do {
             let response = try await ruleService.getRules()
             allRules = response.rules.sorted { ($0.updatedAt ?? $0.createdAt ?? "") > ($1.updatedAt ?? $1.createdAt ?? "") }
-            total = allRules.count
-            totalPages = (total > 0) ? (total + pageSize - 1) / pageSize : 0
-
-            let startIndex = (page - 1) * pageSize
-            let endIndex = min(startIndex + pageSize, total)
-
-            rules = startIndex < total ? Array(allRules[startIndex..<endIndex]) : []
-            currentPage = page
+            applyFilterAndPagination(page: page, pageSize: pageSize)
         } catch let err {
             error = err.localizedDescription
         }
+    }
+
+    private func applyFilterAndPagination(page: Int, pageSize: Int) {
+        let keyword = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let filtered = allRules.filter { rule in
+            guard !keyword.isEmpty else { return true }
+            let categoryName = rule.category?.name ?? ""
+            let conditionValues = rule.conditions
+                .map { "\($0.field) \($0.keyPath ?? "") \($0.op) \($0.value)" }
+                .joined(separator: " ")
+            let templateValues = "\(rule.titleTemplate ?? "") \(rule.contentTemplate ?? "")"
+            let haystack: String
+            switch searchField {
+            case "name":
+                haystack = rule.name
+            case "description":
+                haystack = rule.description ?? ""
+            case "category":
+                haystack = categoryName
+            case "match_type":
+                haystack = rule.matchType
+            case "template":
+                haystack = templateValues
+            case "condition":
+                haystack = conditionValues
+            default:
+                haystack = [rule.name, rule.description ?? "", categoryName, rule.matchType, templateValues, conditionValues]
+                    .joined(separator: " ")
+            }
+            return haystack.lowercased().contains(keyword)
+        }
+        total = filtered.count
+            totalPages = (total > 0) ? (total + pageSize - 1) / pageSize : 0
+
+            let safePage = min(page, max(1, totalPages == 0 ? 1 : totalPages))
+            let startIndex = (safePage - 1) * pageSize
+            let endIndex = min(startIndex + pageSize, total)
+
+            rules = startIndex < total ? Array(filtered[startIndex..<endIndex]) : []
+            currentPage = safePage
     }
 
     func loadCategories() {
@@ -86,6 +121,16 @@ class RulesViewModel: ObservableObject {
         loadRules(page: 1, pageSize: size)
     }
 
+    func setSearchQuery(_ query: String) {
+        setSearch(query: query, field: searchField)
+    }
+
+    func setSearch(query: String, field: String) {
+        searchQuery = query
+        searchField = field
+        applyFilterAndPagination(page: 1, pageSize: pageSize)
+    }
+
     func setEditRule(_ rule: Rule?) {
         editRule = rule
     }
@@ -98,19 +143,26 @@ class RulesViewModel: ObservableObject {
         name: String,
         description: String?,
         categoryId: Int,
-        priority: Int,
         matchType: String,
         conditions: [RuleConditionDraft],
-        isEnabled: Bool
+        isEnabled: Bool,
+        titleTemplate: String?,
+        contentTemplate: String?
     ) {
         Task {
             let conditionsDict: [String: AnyEncodable] = [
                 "match_type": AnyEncodable(matchType),
-                "conditions": AnyEncodable(conditions.map { [
-                    "field": $0.field,
-                    "operator": $0.op,
-                    "value": $0.value
-                ] as [String: String] })
+                "conditions": AnyEncodable(conditions.map { condition in
+                    var payload: [String: Any] = [
+                        "field": condition.field,
+                        "operator": condition.op,
+                        "value": condition.value
+                    ]
+                    if !condition.keyPath.isEmpty {
+                        payload["key_path"] = condition.keyPath
+                    }
+                    return payload
+                })
             ]
 
             do {
@@ -118,9 +170,10 @@ class RulesViewModel: ObservableObject {
                     name: name,
                     description: description,
                     categoryId: categoryId,
-                    priority: priority,
                     conditions: conditionsDict,
-                    isEnabled: isEnabled
+                    isEnabled: isEnabled,
+                    titleTemplate: titleTemplate,
+                    contentTemplate: contentTemplate
                 )
                 loadRules(page: currentPage, pageSize: pageSize)
                 actionRule = nil
@@ -135,20 +188,27 @@ class RulesViewModel: ObservableObject {
         name: String,
         description: String?,
         categoryId: Int?,
-        priority: Int,
         matchType: String,
         conditions: [RuleConditionDraft],
-        isEnabled: Bool
+        isEnabled: Bool,
+        titleTemplate: String?,
+        contentTemplate: String?
     ) {
         Task { [weak self] in
             guard let self = self else { return }
             let conditionsDict: [String: AnyEncodable] = [
                 "match_type": AnyEncodable(matchType),
-                "conditions": AnyEncodable(conditions.map { [
-                    "field": $0.field,
-                    "operator": $0.op,
-                    "value": $0.value
-                ] as [String: String] })
+                "conditions": AnyEncodable(conditions.map { condition in
+                    var payload: [String: Any] = [
+                        "field": condition.field,
+                        "operator": condition.op,
+                        "value": condition.value
+                    ]
+                    if !condition.keyPath.isEmpty {
+                        payload["key_path"] = condition.keyPath
+                    }
+                    return payload
+                })
             ]
 
             do {
@@ -157,9 +217,10 @@ class RulesViewModel: ObservableObject {
                     name: name,
                     description: description,
                     categoryId: categoryId,
-                    priority: priority,
                     conditions: conditionsDict,
-                    isEnabled: isEnabled
+                    isEnabled: isEnabled,
+                    titleTemplate: titleTemplate,
+                    contentTemplate: contentTemplate
                 )
                 if let index = self.rules.firstIndex(where: { $0.id == ruleId }) {
                     self.rules[index] = updated

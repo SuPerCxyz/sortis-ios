@@ -29,19 +29,25 @@ class RuleService {
         name: String,
         description: String?,
         categoryId: Int,
-        priority: Int,
         conditions: [String: AnyEncodable],
-        isEnabled: Bool
+        isEnabled: Bool,
+        titleTemplate: String?,
+        contentTemplate: String?
     ) async throws -> Rule {
         var body: [String: AnyEncodable] = [
             "name": AnyEncodable(name),
             "category_id": AnyEncodable(categoryId),
-            "priority": AnyEncodable(priority),
             "conditions": AnyEncodable(conditions),
             "is_enabled": AnyEncodable(isEnabled)
         ]
         if let description = description {
             body["description"] = AnyEncodable(description)
+        }
+        if let titleTemplate = titleTemplate {
+            body["title_template"] = AnyEncodable(titleTemplate)
+        }
+        if let contentTemplate = contentTemplate {
+            body["content_template"] = AnyEncodable(contentTemplate)
         }
 
         return try await client.post(path: "/api/rules", body: body)
@@ -53,14 +59,12 @@ class RuleService {
         name: String,
         description: String?,
         categoryId: Int?,
-        priority: Int,
         conditions: [String: AnyEncodable]?,
-        isEnabled: Bool?
+        isEnabled: Bool?,
+        titleTemplate: String?,
+        contentTemplate: String?
     ) async throws -> Rule {
-        var body: [String: AnyEncodable] = [
-            "name": AnyEncodable(name),
-            "priority": AnyEncodable(priority)
-        ]
+        var body: [String: AnyEncodable] = ["name": AnyEncodable(name)]
         if let description = description {
             body["description"] = AnyEncodable(description)
         }
@@ -72,6 +76,12 @@ class RuleService {
         }
         if let isEnabled = isEnabled {
             body["is_enabled"] = AnyEncodable(isEnabled)
+        }
+        if let titleTemplate = titleTemplate {
+            body["title_template"] = AnyEncodable(titleTemplate)
+        }
+        if let contentTemplate = contentTemplate {
+            body["content_template"] = AnyEncodable(contentTemplate)
         }
 
         return try await client.put(path: "/api/rules/\(ruleId)", body: body)

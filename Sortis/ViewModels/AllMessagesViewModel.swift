@@ -14,6 +14,8 @@ class AllMessagesViewModel: ObservableObject {
     @Published var isRefreshing: Bool = false
     @Published var currentTab: Int = 0
     @Published var timeRange: String = "7d"
+    @Published var searchQuery: String = ""
+    @Published var searchField: String = "all"
     @Published var selectedMessage: Message?
     @Published var actionMessage: Message?
     @Published var showMoveDialog: Bool = false
@@ -24,8 +26,6 @@ class AllMessagesViewModel: ObservableObject {
     @Published var totalPages: Int = 0
 
     @Published var categories: [FlatCategory] = []
-
-    private var allMessages: [Message] = []
 
     private let messageService = MessageService()
     private let categoryService = CategoryService()
@@ -56,32 +56,26 @@ class AllMessagesViewModel: ObservableObject {
 
     private func fetchMessages(tab: Int, page: Int, pageSize: Int) async {
         do {
-            allMessages = try await messageService.getAllMessages(timeRange: timeRange)
+            let isRead: Bool? = (tab == 1) ? false : ((tab == 2) ? true : nil)
+            let isStarred: Bool? = (tab == 3) ? true : nil
+            let isCategorized: Bool? = (tab == 4) ? false : nil
 
-            // 按时间排序
-            let sortedMessages = allMessages.sorted { $0.receivedAt > $1.receivedAt }
+            let response = try await messageService.getMessages(
+                page: page,
+                pageSize: pageSize,
+                timeRange: timeRange,
+                isRead: isRead,
+                isStarred: isStarred,
+                isCategorized: isCategorized,
+                search: searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : searchQuery,
+                searchField: searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : searchField
+            )
 
-            // 根据标签过滤
-            let filtered: [Message]
-            switch tab {
-            case 1:
-                filtered = sortedMessages.filter { !$0.isRead }
-            case 2:
-                filtered = sortedMessages.filter { $0.isStarred }
-            case 3:
-                filtered = sortedMessages.filter { $0.categories?.isEmpty ?? true }
-            default:
-                filtered = sortedMessages
-            }
-
-            total = filtered.count
+            total = response.total
             totalPages = (total > 0) ? (total + pageSize - 1) / pageSize : 0
 
             let safePage = min(page, max(1, totalPages))
-            let startIndex = (safePage - 1) * pageSize
-            let endIndex = min(startIndex + pageSize, total)
-
-            messages = startIndex < total ? Array(filtered[startIndex..<endIndex]) : []
+            messages = response.messages
             currentPage = safePage
         } catch {
             print("Failed to load messages: \(error)")
@@ -109,18 +103,63 @@ class AllMessagesViewModel: ObservableObject {
         loadMessages(tab: currentTab, page: 1, pageSize: pageSize)
     }
 
+    func setSearchQuery(_ query: String) {
+        setSearch(query: query, field: searchField)
+    }
+
+    func setSearch(query: String, field: String) {
+        let previousQuery = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        let nextQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let previousField = searchField
+        searchQuery = query
+        searchField = field
+
+        let queryChanged = previousQuery != nextQuery
+        let shouldReloadForFieldChange = !nextQuery.isEmpty && previousField != field
+        guard queryChanged || shouldReloadForFieldChange else { return }
+
+        loadMessages(tab: currentTab, page: 1, pageSize: pageSize)
+    }
+
     func selectMessage(_ message: Message?) {
         selectedMessage = message
         if let message = message {
             Task {
-                if !message.isRead {
-                    do {
-                        let updated = try await messageService.markAsRead(messageId: message.id, isRead: true)
-                        updateMessageInList(updated)
-                        selectedMessage = updated
-                    } catch {
-                        print("Failed to mark as read: \(error)")
+                let optimistic = Message(
+                    id: message.id,
+                    userId: message.userId,
+                    receiverId: message.receiverId,
+                    sourceName: message.sourceName,
+                    sourceAddress: message.sourceAddress,
+                    title: message.title,
+                    content: message.content,
+                    contentType: message.contentType,
+                    isRead: true,
+                    isStarred: message.isStarred,
+                    isCategorized: message.isCategorized,
+                    receivedAt: message.receivedAt,
+                    createdAt: message.createdAt,
+                    hasFullContent: message.hasFullContent,
+                    attachments: message.attachments,
+                    receiver: message.receiver,
+                    categories: message.categories
+                )
+                updateMessageInList(optimistic)
+                selectedMessage = optimistic
+
+                do {
+                    let updated: Message
+                    if !message.isRead {
+                        updated = try await messageService.markAsRead(messageId: message.id, isRead: true)
+                    } else if !message.hasFullContent {
+                        updated = try await messageService.getMessage(messageId: message.id)
+                    } else {
+                        updated = optimistic
                     }
+                    updateMessageInList(updated)
+                    selectedMessage = updated
+                } catch {
+                    print("Failed to load message detail: \(error)")
                 }
             }
         }
@@ -154,10 +193,10 @@ class AllMessagesViewModel: ObservableObject {
         }
     }
 
-    func deleteMessage(messageId: Int) {
+    func deleteMessage(messageId: Int, deleteRemote: Bool = false) {
         Task {
             do {
-                _ = try await messageService.deleteMessage(messageId: messageId)
+                _ = try await messageService.deleteMessage(messageId: messageId, deleteRemote: deleteRemote)
                 messages.removeAll { $0.id == messageId }
                 actionMessage = nil
             } catch {

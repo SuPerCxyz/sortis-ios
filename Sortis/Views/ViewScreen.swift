@@ -29,26 +29,40 @@ struct CategoryNavigationView: View {
         ScrollView {
             VStack(spacing: 12) {
                 // 统计卡片
-                HStack(spacing: 12) {
+                LazyVGrid(
+                    columns: Array(repeating: GridItem(.flexible(minimum: 0), spacing: 6), count: 5),
+                    alignment: .leading,
+                    spacing: 6
+                ) {
                     StatItem(
                         label: "总信息",
                         value: viewModel.stats?.total ?? viewModel.total,
-                        color: .sortisPrimary
+                        color: .sortisPrimary,
+                        compact: true
                     )
                     StatItem(
                         label: "未读",
                         value: viewModel.stats?.unread ?? 0,
-                        color: .sortisError
+                        color: .sortisError,
+                        compact: true
                     )
                     StatItem(
                         label: "星标",
                         value: viewModel.stats?.starred ?? 0,
-                        color: .sortisWarning
+                        color: .sortisWarning,
+                        compact: true
                     )
                     StatItem(
                         label: "分类",
                         value: flattenCategories(viewModel.categories).count,
-                        color: .sortisSuccess
+                        color: .sortisSuccess,
+                        compact: true
+                    )
+                    StatItem(
+                        label: "接收器",
+                        value: viewModel.receiverCount,
+                        color: Color(hex: "8B5CF6"),
+                        compact: true
                     )
                 }
                 .padding(.horizontal)
@@ -137,6 +151,65 @@ struct CategoryMessagesView: View {
             }
             .padding(.horizontal)
 
+            HStack(spacing: 8) {
+                Picker(selection: Binding(
+                    get: { viewModel.messageStatusFilter },
+                    set: { viewModel.setMessageStatusFilter($0) }
+                )) {
+                    Text("全部").tag("all")
+                    Text("未读").tag("unread")
+                    Text("已读").tag("read")
+                    Text("星标").tag("starred")
+                    Text("未分类").tag("uncategorized")
+                } label: {
+                    HStack(spacing: 6) {
+                        SortisMessageFilterIcon(size: 14, color: .secondary)
+                        Text("状态")
+                    }
+                }
+                .pickerStyle(.menu)
+
+                HStack(spacing: 8) {
+                    Menu {
+                        ForEach(messageSearchFieldOptions) { option in
+                            Button(action: {
+                                viewModel.setSearch(query: viewModel.searchQuery, field: option.value)
+                            }) {
+                                if viewModel.searchField == option.value {
+                                    Label(option.label, systemImage: "checkmark")
+                                } else {
+                                    Text(option.label)
+                                }
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text(searchFieldLabel(for: viewModel.searchField, options: messageSearchFieldOptions))
+                                .font(.caption)
+                            Image(systemName: "chevron.down")
+                                .font(.caption2)
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 6)
+                        .background(Color(.secondarySystemBackground))
+                        .cornerRadius(8)
+                    }
+                    SortisSearchIcon(size: 16, color: .secondary)
+                    TextField("", text: $viewModel.searchQuery)
+                        .sortisCenteredPlaceholder("搜索信息", isEmpty: viewModel.searchQuery.isEmpty)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .onSubmit {
+                            viewModel.setSearch(query: viewModel.searchQuery, field: viewModel.searchField)
+                        }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(Color(.systemBackground))
+                .cornerRadius(10)
+            }
+            .padding(.horizontal)
+
             // 消息列表
             if viewModel.isLoading {
                 Spacer()
@@ -156,7 +229,7 @@ struct CategoryMessagesView: View {
                 ScrollView {
                     LazyVStack(spacing: 8) {
                         ForEach(viewModel.messages) { message in
-                            MessageCard(message: message) {
+                            MessageEntityCard(message: message) {
                                 viewModel.selectMessage(message)
                             }
                             .onLongPressGesture {
@@ -172,7 +245,7 @@ struct CategoryMessagesView: View {
             }
         }
         .sheet(item: $viewModel.selectedMessage) { message in
-            MessageDetailSheet(
+            MessageEntityDetailSheet(
                 message: message,
                 onToggleRead: { viewModel.toggleRead(messageId: message.id) },
                 onToggleStar: { viewModel.toggleStar(messageId: message.id) }
@@ -187,7 +260,9 @@ struct CategoryMessagesView: View {
                 onToggleRead: { viewModel.toggleRead(messageId: message.id) },
                 onToggleStar: { viewModel.toggleStar(messageId: message.id) },
                 onMove: { viewModel.moveMessage(messageId: message.id, categoryId: $0) },
-                onDelete: { viewModel.deleteMessage(messageId: message.id) },
+                onDelete: { deleteRemote in
+                    viewModel.deleteMessage(messageId: message.id, deleteRemote: deleteRemote)
+                },
                 onDismiss: { viewModel.setActionMessage(nil) }
             )
         }
@@ -256,18 +331,22 @@ struct StatItem: View {
     let label: String
     let value: Int
     let color: Color
+    var compact: Bool = false
 
     var body: some View {
         VStack {
             Text("\(value)")
-                .font(.title)
+                .font(.system(size: compact ? 16 : 28, weight: .bold))
                 .fontWeight(.bold)
                 .foregroundColor(color)
             Text(label)
-                .font(.caption)
+                .font(.system(size: compact ? 9 : 12))
                 .foregroundColor(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, minHeight: compact ? 40 : nil)
+        .contentShape(Rectangle())
     }
 }
 
@@ -296,6 +375,7 @@ struct TimeRangePicker: View {
             }
         } label: {
             HStack(spacing: 4) {
+                SortisTimeFilterIcon(size: 14, color: .secondary)
                 Text(options.first { $0.0 == timeRange }?.1 ?? "7天")
                     .font(.caption)
                 Image(systemName: "chevron.down")

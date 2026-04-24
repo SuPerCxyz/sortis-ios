@@ -26,21 +26,15 @@ struct MessageCard: View {
 
                     // 分类标签
                     if let category = message.categories?.first {
-                        Text(category.name)
-                            .font(.caption2)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color(hex: category.color ?? "#1677FF"))
-                            .foregroundColor(.white)
-                            .cornerRadius(3)
+                        FilledTag(
+                            text: category.name,
+                            color: categoryTagColor(category.color)
+                        )
                     } else {
-                        Text("未分类")
-                            .font(.caption2)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.secondary)
-                            .foregroundColor(.white)
-                            .cornerRadius(3)
+                        FilledTag(
+                            text: "未分类",
+                            color: .chipUncategorized
+                        )
                     }
 
                     Spacer()
@@ -61,6 +55,7 @@ struct MessageCard: View {
                         .lineLimit(1)
                         .frame(maxWidth: .infinity, alignment: .leading)
 
+                    // 星标图标 - 未星标描边，星标时金色填充
                     Image(systemName: message.isStarred ? "star.fill" : "star")
                         .foregroundColor(message.isStarred ? .messageStarred : .secondary)
                         .font(.system(size: 16))
@@ -114,15 +109,17 @@ struct MessageDetailSheet: View {
                     if let categories = message.categories, !categories.isEmpty {
                         HStack {
                             ForEach(categories, id: \.id) { cat in
-                                Text(cat.name)
-                                    .font(.caption)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(Color(hex: cat.color ?? "#1677FF"))
-                                    .foregroundColor(.white)
-                                    .cornerRadius(4)
+                                FilledTag(
+                                    text: cat.name,
+                                    color: categoryTagColor(cat.color)
+                                )
                             }
                         }
+                    } else {
+                        FilledTag(
+                            text: "未分类",
+                            color: .chipUncategorized
+                        )
                     }
 
                     Divider()
@@ -152,8 +149,9 @@ struct MessageDetailSheet: View {
                             Image(systemName: message.isRead ? "envelope.badge" : "envelope.open")
                         }
                         Button(action: onToggleStar) {
+                            // 星标图标 - 未星标描边，星标时金色填充
                             Image(systemName: message.isStarred ? "star.fill" : "star")
-                                .foregroundColor(message.isStarred ? .yellow : .primary)
+                                .foregroundColor(message.isStarred ? .messageStarred : .primary)
                         }
                     }
                 }
@@ -169,10 +167,15 @@ struct MessageActionSheet: View {
     let onToggleRead: () -> Void
     let onToggleStar: () -> Void
     let onMove: (Int) -> Void
-    let onDelete: () -> Void
+    let onDelete: (Bool) -> Void
     let onDismiss: () -> Void
 
     @State private var showMoveSheet = false
+    @State private var showDeleteOptions = false
+
+    private var isEmailMessage: Bool {
+        message.receiver?.type == "email"
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -219,8 +222,12 @@ struct MessageActionSheet: View {
             Divider()
 
             Button(action: {
-                onDelete()
-                onDismiss()
+                if isEmailMessage {
+                    showDeleteOptions = true
+                } else {
+                    onDelete(false)
+                    onDismiss()
+                }
             }) {
                 Text("删除")
                     .foregroundColor(.red)
@@ -246,6 +253,23 @@ struct MessageActionSheet: View {
                 showMoveSheet = false
                 onDismiss()
             }
+        }
+        .confirmationDialog(
+            "确认删除邮件信息",
+            isPresented: $showDeleteOptions,
+            titleVisibility: .visible
+        ) {
+            Button("仅删除本地", role: .destructive) {
+                onDelete(false)
+                onDismiss()
+            }
+            Button("删除远端内容", role: .destructive) {
+                onDelete(true)
+                onDismiss()
+            }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("仅删除本地会保留远端邮件，并阻止这条邮件下次再同步回来；删除远端内容会同时从邮箱服务器删除原邮件。")
         }
     }
 }

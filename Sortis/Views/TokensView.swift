@@ -10,10 +10,72 @@ import SwiftUI
 struct TokensView: View {
     @StateObject private var viewModel = TokensViewModel()
 
-    @State private var showDeleteConfirm = false
+    @State private var selectedToken: ApiToken?
+    @State private var deleteCandidate: ApiToken?
 
     var body: some View {
         VStack {
+            HStack(spacing: 8) {
+                Menu {
+                    ForEach(tokenSearchFieldOptions) { option in
+                        Button(action: {
+                            viewModel.setSearch(query: viewModel.searchQuery, field: option.value)
+                        }) {
+                            if viewModel.searchField == option.value {
+                                Label(option.label, systemImage: "checkmark")
+                            } else {
+                                Text(option.label)
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(searchFieldLabel(for: viewModel.searchField, options: tokenSearchFieldOptions))
+                            .font(.caption)
+                        Image(systemName: "chevron.down")
+                            .font(.caption2)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
+                    .background(Color(.secondarySystemBackground))
+                    .cornerRadius(8)
+                }
+                SortisSearchIcon(size: 16, color: .secondary)
+                TextField("", text: $viewModel.searchQuery)
+                    .sortisCenteredPlaceholder("搜索 Token", isEmpty: viewModel.searchQuery.isEmpty)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .onSubmit {
+                        viewModel.setSearch(query: viewModel.searchQuery, field: viewModel.searchField)
+                    }
+                if !viewModel.searchQuery.isEmpty {
+                    Button("搜索") {
+                        viewModel.setSearch(query: viewModel.searchQuery, field: viewModel.searchField)
+                    }
+                    .font(.caption)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(Color(.systemBackground))
+            .cornerRadius(10)
+            .padding(.horizontal)
+            .padding(.top, 8)
+
+            HStack {
+                PaginationControl(
+                    currentPage: viewModel.currentPage,
+                    totalPages: viewModel.totalPages,
+                    onPageChange: { viewModel.changePage($0) }
+                )
+                Spacer()
+                Text("共 \(viewModel.total) 条")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 8)
+
             if viewModel.isLoading {
                 Spacer()
                 ProgressView()
@@ -29,31 +91,57 @@ struct TokensView: View {
                 }
                 Spacer()
             } else {
-                ScrollView {
-                    LazyVStack(spacing: 8) {
+                List {
                         ForEach(viewModel.tokens) { token in
-                            TokenCard(
+                            TokenEntityCard(
                                 token: token,
-                                onToggle: { viewModel.revokeOrActivate(tokenId: token.id, isActive: token.isActive) },
-                                onEdit: { viewModel.setEditToken(token) },
-                                onDelete: {
-                                    viewModel.setActionToken(token)
-                                    showDeleteConfirm = true
-                                }
+                                receivers: viewModel.receivers
                             )
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                selectedToken = token
+                            }
+                            .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                                Button {
+                                    viewModel.setEditToken(token)
+                                } label: {
+                                    Label("编辑", systemImage: "pencil")
+                                }
+                                .tint(.sortisInfo)
+
+                                Button {
+                                    viewModel.revokeOrActivate(tokenId: token.id, isActive: token.isUsable)
+                                } label: {
+                                    Label(token.toggleActionLabel, systemImage: token.toggleActionSystemImage)
+                                }
+                                .tint(token.canToggleAction ? .sortisWarning : .gray)
+                                .disabled(!token.canToggleAction)
+                            }
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                Button(role: .destructive) {
+                                    deleteCandidate = token
+                                } label: {
+                                    Label("删除", systemImage: "trash")
+                                }
+                            }
+                            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
                         }
-                    }
-                    .padding(.horizontal)
                 }
+                .listStyle(.plain)
                 .refreshable {
                     viewModel.refresh()
                 }
             }
         }
+        .navigationDestination(item: $selectedToken) { token in
+            TokenEntityDetailView(token: token, receivers: viewModel.receivers)
+        }
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(action: { viewModel.setCreateOpen(true) }) {
-                    Image(systemName: "plus")
+                    SortisCreateIcon(size: 18)
                 }
             }
         }
@@ -94,12 +182,16 @@ struct TokensView: View {
         } message: {
             Text("请保存您的 Token，此值只显示一次：\n\(viewModel.createdToken ?? "")")
         }
-        .alert("确认删除", isPresented: $showDeleteConfirm) {
+        .alert("确认删除", isPresented: Binding(
+            get: { deleteCandidate != nil },
+            set: { if !$0 { deleteCandidate = nil } }
+        )) {
             Button("取消", role: .cancel) {}
             Button("删除", role: .destructive) {
-                if let token = viewModel.actionToken {
+                if let token = deleteCandidate {
                     viewModel.deleteToken(tokenId: token.id)
                 }
+                deleteCandidate = nil
             }
         } message: {
             Text("确定要删除此 Token 吗？")
@@ -109,13 +201,10 @@ struct TokensView: View {
 
 struct TokenCard: View {
     let token: ApiToken
-    let onToggle: () -> Void
-    let onEdit: () -> Void
-    let onDelete: () -> Void
+    let receivers: [Receiver]
 
-    private var receiverSummary: String {
-        let names = token.receiverNames ?? []
-        return names.isEmpty ? "无绑定接收器" : names.joined(separator: ", ")
+    private var receiverNames: [String] {
+        token.receiverNames ?? []
     }
 
     var body: some View {
@@ -131,19 +220,30 @@ struct TokenCard: View {
 
                 Spacer()
 
-                Text(token.isActive ? "运行中" : "已暂停")
-                    .font(.caption2)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(token.isActive ? Color.sortisSuccess.opacity(0.2) : Color.secondary.opacity(0.2))
-                    .foregroundColor(token.isActive ? .sortisSuccess : .secondary)
-                    .cornerRadius(4)
+                FilledTag(
+                    text: token.statusText,
+                    color: tokenStatusTagColor(token.runtimeStatus)
+                )
             }
 
-            Text(receiverSummary)
-                .font(.caption2)
-                .foregroundColor(.secondary)
-                .lineLimit(1)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    if receiverNames.isEmpty {
+                        FilledTag(
+                            text: "未绑定",
+                            color: .chipMutedBackground,
+                            textColor: .chipMutedText
+                        )
+                    } else {
+                        ForEach(Array(receiverNames.enumerated()), id: \.offset) { index, name in
+                            FilledTag(
+                                text: name,
+                                color: resolveTokenReceiverTagColor(token: token, receiverName: name, index: index, receivers: receivers)
+                            )
+                        }
+                    }
+                }
+            }
 
             Text(maskToken(token.tokenPreview ?? token.token))
                 .font(.system(size: 12, design: .monospaced))
@@ -160,36 +260,6 @@ struct TokenCard: View {
                     .font(.caption2)
                     .foregroundColor(.secondary)
             }
-
-            HStack {
-                Spacer()
-
-                Toggle("", isOn: Binding(
-                    get: { token.isActive },
-                    set: { _ in onToggle() }
-                ))
-                .labelsHidden()
-                .scaleEffect(0.7)
-
-                Menu {
-                    Button(action: onEdit) {
-                        Label("编辑", systemImage: "pencil")
-                    }
-                    Button {
-                        UIPasteboard.general.string = token.plainToken ?? token.tokenPreview ?? token.token
-                    } label: {
-                        Label("复制 Token", systemImage: "doc.on.doc")
-                    }
-                    Divider()
-                    Button(role: .destructive, action: onDelete) {
-                        Label("删除", systemImage: "trash")
-                    }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
         }
         .padding(12)
         .background(Color(.systemBackground))
@@ -205,6 +275,95 @@ struct TokenCard: View {
         let suffix = String(token.suffix(4))
         return "\(prefix)...\(suffix)"
     }
+}
+
+struct TokenDetailView: View {
+    let token: ApiToken
+    let receivers: [Receiver]
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text(token.name)
+                    .font(.title3)
+                    .fontWeight(.semibold)
+
+                HStack(spacing: 8) {
+                    FilledTag(text: token.statusText, color: tokenStatusTagColor(token.runtimeStatus))
+                    FilledTag(
+                        text: token.expiresAt?.formatDateTime() ?? "永不过期",
+                        color: .chipMutedBackground,
+                        textColor: .chipMutedText
+                    )
+                }
+
+                tokenDetailRow("名称", token.name)
+                tokenDetailRow("状态", token.statusText)
+                tokenDetailRow("预览", token.tokenPreview ?? token.token)
+                if !(token.receiverNames ?? []).isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("绑定接收器")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 6) {
+                                ForEach(Array((token.receiverNames ?? []).enumerated()), id: \.offset) { index, name in
+                                    FilledTag(
+                                        text: name,
+                                        color: resolveTokenReceiverTagColor(token: token, receiverName: name, index: index, receivers: receivers)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    tokenDetailRow("绑定接收器", "未绑定")
+                }
+                tokenDetailRow("最近使用", token.lastUsedAt?.formatDateTime() ?? "从未使用")
+                tokenDetailRow("创建时间", (token.createdAt ?? "").formatDateTime())
+                tokenDetailRow("过期时间", token.expiresAt?.formatDateTime() ?? "永不过期")
+            }
+            .padding(16)
+        }
+        .navigationTitle("Token 管理")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func tokenDetailRow(_ label: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(.caption)
+                .foregroundColor(.secondary)
+            Text(value.isEmpty ? "-" : value)
+                .font(.body)
+        }
+    }
+
+    private func maskToken(_ token: String) -> String {
+        if token.count <= 8 {
+            return token
+        }
+        let prefix = String(token.prefix(4))
+        let suffix = String(token.suffix(4))
+        return "\(prefix)...\(suffix)"
+    }
+}
+
+private func resolveTokenReceiverTagColor(
+    token: ApiToken,
+    receiverName: String,
+    index: Int,
+    receivers: [Receiver]
+) -> Color {
+    let receiverById =
+        (token.receiverIds?.indices.contains(index) == true
+            ? receivers.first(where: { $0.id == token.receiverIds?[index] })
+            : nil)
+        ?? (index == 0
+            ? token.receiverId.flatMap { receiverId in receivers.first(where: { $0.id == receiverId }) }
+            : nil)
+    let receiver = receiverById ?? receivers.first(where: { $0.name == receiverName })
+    return receiver.map { receiverTypeTagColor($0.type) } ?? tokenReceiverTagColor(index)
 }
 
 struct TokenEditDialog: View {
@@ -233,7 +392,8 @@ struct TokenEditDialog: View {
         NavigationView {
             Form {
                 Section(header: Text("基本信息")) {
-                    TextField("Token 名称", text: $name)
+                    TextField("", text: $name)
+                        .sortisCenteredPlaceholder("Token 名称", isEmpty: name.isEmpty)
                 }
 
                 if token == nil {
@@ -270,7 +430,8 @@ struct TokenEditDialog: View {
                         if expiresIn == -1 {
                             HStack {
                                 Text("自定义天数")
-                                TextField("天数", text: $customDays)
+                                TextField("", text: $customDays)
+                                    .sortisCenteredPlaceholder("天数", isEmpty: customDays.isEmpty)
                                     .keyboardType(.numberPad)
                                     .multilineTextAlignment(.trailing)
                             }

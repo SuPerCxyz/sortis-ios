@@ -10,10 +10,72 @@ import SwiftUI
 struct ReceiversView: View {
     @StateObject private var viewModel = ReceiversViewModel()
 
-    @State private var showDeleteConfirm = false
+    @State private var selectedReceiver: Receiver?
+    @State private var deleteCandidate: Receiver?
 
     var body: some View {
         VStack {
+            HStack(spacing: 8) {
+                Menu {
+                    ForEach(receiverSearchFieldOptions) { option in
+                        Button(action: {
+                            viewModel.setSearch(query: viewModel.searchQuery, field: option.value)
+                        }) {
+                            if viewModel.searchField == option.value {
+                                Label(option.label, systemImage: "checkmark")
+                            } else {
+                                Text(option.label)
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(searchFieldLabel(for: viewModel.searchField, options: receiverSearchFieldOptions))
+                            .font(.caption)
+                        Image(systemName: "chevron.down")
+                            .font(.caption2)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
+                    .background(Color(.secondarySystemBackground))
+                    .cornerRadius(8)
+                }
+                SortisSearchIcon(size: 16, color: .secondary)
+                TextField("", text: $viewModel.searchQuery)
+                    .sortisCenteredPlaceholder("搜索接收器", isEmpty: viewModel.searchQuery.isEmpty)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .onSubmit {
+                        viewModel.setSearch(query: viewModel.searchQuery, field: viewModel.searchField)
+                    }
+                if !viewModel.searchQuery.isEmpty {
+                    Button("搜索") {
+                        viewModel.setSearch(query: viewModel.searchQuery, field: viewModel.searchField)
+                    }
+                    .font(.caption)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(Color(.systemBackground))
+            .cornerRadius(10)
+            .padding(.horizontal)
+            .padding(.top, 8)
+
+            HStack {
+                PaginationControl(
+                    currentPage: viewModel.currentPage,
+                    totalPages: viewModel.totalPages,
+                    onPageChange: { viewModel.changePage($0) }
+                )
+                Spacer()
+                Text("共 \(viewModel.total) 条")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 8)
+
             if viewModel.isLoading {
                 Spacer()
                 ProgressView()
@@ -29,33 +91,67 @@ struct ReceiversView: View {
                 }
                 Spacer()
             } else {
-                ScrollView {
-                    LazyVStack(spacing: 8) {
+                List {
                         ForEach(viewModel.receivers) { receiver in
-                            ReceiverCard(
+                            ReceiverEntityCard(
                                 receiver: receiver,
-                                boundTokenName: viewModel.boundToken(for: receiver)?.name,
-                                onToggle: { viewModel.toggleReceiver(receiverId: receiver.id) },
-                                onSync: { viewModel.syncReceiver(receiverId: receiver.id) },
-                                onEdit: { viewModel.setEditReceiver(receiver) },
-                                onDelete: {
-                                    viewModel.setActionReceiver(receiver)
-                                    showDeleteConfirm = true
-                                }
+                                boundTokenName: viewModel.boundToken(for: receiver)?.name
                             )
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                selectedReceiver = receiver
+                            }
+                            .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                                Button {
+                                    viewModel.setEditReceiver(receiver)
+                                } label: {
+                                    Label("配置", systemImage: "pencil")
+                                }
+                                .tint(.sortisInfo)
+
+                                Button {
+                                    viewModel.toggleReceiver(receiverId: receiver.id)
+                                } label: {
+                                    Label(receiver.status == "active" ? "停用" : "启用", systemImage: receiver.status == "active" ? "pause.fill" : "play.fill")
+                                }
+                                .tint(.sortisWarning)
+                            }
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                if receiver.type != "http_token" && receiver.type != "websocket" {
+                                    Button {
+                                        viewModel.syncReceiver(receiverId: receiver.id)
+                                    } label: {
+                                        Label("同步", systemImage: "arrow.clockwise")
+                                    }
+                                    .tint(.sortisSuccess)
+                                }
+                                Button(role: .destructive) {
+                                    deleteCandidate = receiver
+                                } label: {
+                                    Label("删除", systemImage: "trash")
+                                }
+                            }
+                            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
                         }
-                    }
-                    .padding(.horizontal)
                 }
+                .listStyle(.plain)
                 .refreshable {
                     viewModel.refresh()
                 }
             }
         }
+        .navigationDestination(item: $selectedReceiver) { receiver in
+            ReceiverEntityDetailView(
+                receiver: receiver,
+                boundTokenName: viewModel.boundToken(for: receiver)?.name
+            )
+        }
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(action: { viewModel.setCreateOpen(true) }) {
-                    Image(systemName: "plus")
+                    SortisCreateIcon(size: 18)
                 }
             }
         }
@@ -96,12 +192,16 @@ struct ReceiversView: View {
                 onDismiss: { viewModel.setEditReceiver(nil) }
             )
         }
-        .alert("确认删除", isPresented: $showDeleteConfirm) {
+        .alert("确认删除", isPresented: Binding(
+            get: { deleteCandidate != nil },
+            set: { if !$0 { deleteCandidate = nil } }
+        )) {
             Button("取消", role: .cancel) {}
             Button("删除", role: .destructive) {
-                if let receiver = viewModel.actionReceiver {
+                if let receiver = deleteCandidate {
                     viewModel.deleteReceiver(receiverId: receiver.id)
                 }
+                deleteCandidate = nil
             }
         } message: {
             Text("确定要删除此接收器吗？")
@@ -112,10 +212,6 @@ struct ReceiversView: View {
 struct ReceiverCard: View {
     let receiver: Receiver
     let boundTokenName: String?
-    let onToggle: () -> Void
-    let onSync: () -> Void
-    let onEdit: () -> Void
-    let onDelete: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -137,19 +233,24 @@ struct ReceiverCard: View {
 
                 Spacer()
 
-                Text(receiverStatusText(receiver.status))
-                    .font(.caption2)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(receiverStatusColor(receiver.status).opacity(0.16))
-                    .foregroundColor(receiverStatusColor(receiver.status))
-                    .cornerRadius(4)
+                FilledTag(
+                    text: receiverStatusTagText(receiver.status),
+                    color: receiverStatusTagColor(receiver.status)
+                )
             }
 
-            Text(boundTokenName ?? "未绑定 Token")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .lineLimit(1)
+            if let boundTokenName, !boundTokenName.isEmpty {
+                FilledTag(
+                    text: boundTokenName,
+                    color: receiverTypeTagColor(receiver.type)
+                )
+            } else {
+                FilledTag(
+                    text: "未绑定",
+                    color: .chipMutedBackground,
+                    textColor: .chipMutedText
+                )
+            }
 
             if let configPreview = buildReceiverConfigSummary(config: receiver.configDictionary) {
                 Text(configPreview)
@@ -174,44 +275,6 @@ struct ReceiverCard: View {
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }
-
-                Spacer()
-
-                HStack(spacing: 12) {
-                    if receiver.type != "http_token" && receiver.type != "websocket" {
-                        Button(action: onSync) {
-                            Image(systemName: "arrow.clockwise")
-                                .font(.caption)
-                                .foregroundColor(.sortisPrimary)
-                        }
-                    }
-
-                    Toggle("", isOn: Binding(
-                        get: { receiver.status == "active" || receiver.isEnabled },
-                        set: { _ in onToggle() }
-                    ))
-                    .labelsHidden()
-                    .scaleEffect(0.7)
-
-                    Menu {
-                        Button(action: onEdit) {
-                            Label("配置", systemImage: "pencil")
-                        }
-                        if receiver.type != "http_token" && receiver.type != "websocket" {
-                            Button(action: onSync) {
-                                Label("手动同步", systemImage: "arrow.clockwise")
-                            }
-                        }
-                        Divider()
-                        Button(role: .destructive, action: onDelete) {
-                            Label("删除", systemImage: "trash")
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
             }
 
             if let errorMessage = receiver.errorMessage, !errorMessage.isEmpty {
@@ -225,6 +288,67 @@ struct ReceiverCard: View {
         .background(Color(.systemBackground))
         .cornerRadius(10)
         .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
+    }
+}
+
+struct ReceiverDetailView: View {
+    let receiver: Receiver
+    let boundTokenName: String?
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text(receiver.name)
+                    .font(.title3)
+                    .fontWeight(.semibold)
+
+                HStack(spacing: 8) {
+                    FilledTag(text: receiverTypeName(receiver.type), color: receiverTypeTagColor(receiver.type))
+                    FilledTag(text: receiverStatusTagText(receiver.status), color: receiverStatusTagColor(receiver.status))
+                }
+
+                receiverDetailRow("名称", receiver.name)
+                receiverDetailRow("类型", receiverTypeName(receiver.type))
+                receiverDetailRow("状态", receiverStatusText(receiver.status))
+                receiverDetailRow("接收器 ID", receiver.publicId ?? "未生成")
+                receiverDetailRow("Token", boundTokenName ?? "未绑定")
+                receiverDetailRow("频率", receiver.type == "http_token" || receiver.type == "websocket" ? "被动接收" : "每 \(receiver.syncInterval ?? 5) 分钟")
+                receiverDetailRow(receiver.type == "http_token" || receiver.type == "websocket" ? "最近接收" : "最近同步", ((receiver.type == "http_token" || receiver.type == "websocket") ? receiver.lastReceivedAt : receiver.lastSyncAt)?.formatDateTime() ?? "暂无")
+                receiverDetailRow("创建时间", (receiver.createdAt ?? "").formatDateTime())
+                receiverDetailRow("更新时间", (receiver.updatedAt ?? "").formatDateTime())
+
+                if let summary = buildReceiverConfigSummary(config: receiver.configDictionary) {
+                    receiverDetailSection("配置摘要", summary)
+                }
+
+                if let errorMessage = receiver.errorMessage, !errorMessage.isEmpty {
+                    receiverDetailSection("错误信息", errorMessage)
+                }
+            }
+            .padding(16)
+        }
+        .navigationTitle("接收器管理")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func receiverDetailRow(_ label: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(.caption)
+                .foregroundColor(.secondary)
+            Text(value.isEmpty ? "-" : value)
+                .font(.body)
+        }
+    }
+
+    private func receiverDetailSection(_ title: String, _ content: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.caption)
+                .foregroundColor(.secondary)
+            Text(content)
+                .font(.body)
+        }
     }
 }
 
@@ -246,6 +370,7 @@ struct ReceiverEditDialog: View {
     @State private var smtpHost: String = ""
     @State private var smtpPort: String = "465"
     @State private var folder: String = "INBOX"
+    @State private var fetchAllFolders: Bool = false
     @State private var botToken: String = ""
     @State private var feedUrl: String = ""
 
@@ -259,13 +384,46 @@ struct ReceiverEditDialog: View {
     private let typeOptions = [
         ("email", "邮件 (IMAP)"),
         ("telegram", "Telegram Bot"),
-        ("http_token", "HTTP Webhook"),
+        ("http_token", "Webhook"),
         ("rss", "RSS 订阅"),
         ("websocket", "WebSocket")
     ]
 
     private let syncOptions = [1, 5, 10, 15, 30, 60]
     private let tokenExpiryOptions: [Int?] = [nil, 1, 7, 30, 90, 365]
+    private var tokenNameBinding: Binding<String> {
+        Binding(
+            get: { tokenName },
+            set: { newValue in
+                if selectedTokenId != nil, !newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    selectedTokenId = nil
+                }
+                tokenName = newValue
+            }
+        )
+    }
+    private var tokenDescriptionBinding: Binding<String> {
+        Binding(
+            get: { tokenDescription },
+            set: { newValue in
+                if selectedTokenId != nil, !newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    selectedTokenId = nil
+                }
+                tokenDescription = newValue
+            }
+        )
+    }
+    private var tokenExpiresInDaysBinding: Binding<Int?> {
+        Binding(
+            get: { tokenExpiresInDays },
+            set: { newValue in
+                if selectedTokenId != nil, newValue != nil {
+                    selectedTokenId = nil
+                }
+                tokenExpiresInDays = newValue
+            }
+        )
+    }
 
     private var activeTokens: [ApiToken] {
         tokens.filter(\.isActive)
@@ -318,7 +476,8 @@ struct ReceiverEditDialog: View {
         NavigationView {
             Form {
                 Section(header: Text("基本信息")) {
-                    TextField("接收器名称", text: $name)
+                    TextField("", text: $name)
+                        .sortisCenteredPlaceholder("接收器名称", isEmpty: name.isEmpty)
 
                     Picker("类型", selection: $type) {
                         ForEach(typeOptions, id: \.0) { value, label in
@@ -354,18 +513,37 @@ struct ReceiverEditDialog: View {
                                 .foregroundColor(.secondary)
                         }
                     }
-                } else if type == "http_token" {
-                    Section(header: Text("创建 Token")) {
-                        TextField("Token 名称", text: $tokenName)
-                        TextField("Token 描述", text: $tokenDescription)
+                } else if type == "http_token" || type == "websocket" {
+                    Section(header: Text("选择或创建 Token")) {
+                        Picker("选择已有 Token", selection: $selectedTokenId) {
+                            Text("未选择").tag(nil as Int?)
+                            ForEach(activeTokens) { token in
+                                Text(token.name).tag(token.id as Int?)
+                            }
+                        }
+                        .disabled(!tokenName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .onChange(of: selectedTokenId) { _, newValue in
+                            guard newValue != nil else { return }
+                            tokenName = ""
+                            tokenDescription = ""
+                            tokenExpiresInDays = nil
+                        }
 
-                        Picker("过期时间", selection: $tokenExpiresInDays) {
+                        TextField("", text: tokenNameBinding)
+                            .sortisCenteredPlaceholder("Token 名称", isEmpty: tokenName.isEmpty)
+                            .disabled(selectedTokenId != nil)
+                        TextField("", text: tokenDescriptionBinding)
+                            .sortisCenteredPlaceholder("Token 描述", isEmpty: tokenDescription.isEmpty)
+                            .disabled(selectedTokenId != nil)
+
+                        Picker("过期时间", selection: tokenExpiresInDaysBinding) {
                             ForEach(tokenExpiryOptions, id: \.self) { days in
                                 Text(days.map { "\($0) 天" } ?? "永不过期").tag(days as Int?)
                             }
                         }
+                        .disabled(selectedTokenId != nil)
 
-                        Text("创建接收器后会自动创建并绑定 Token。")
+                        Text("可直接选择已有 Token，或创建一个新 Token 并在保存后自动绑定。两种方式二选一。")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -408,43 +586,60 @@ struct ReceiverEditDialog: View {
         Section(header: Text("配置")) {
             switch type {
             case "email":
-                TextField("邮箱地址", text: $emailAddress)
+                TextField("", text: $emailAddress)
+                    .sortisCenteredPlaceholder("邮箱地址", isEmpty: emailAddress.isEmpty)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
-                SecureField("授权码/密码", text: $password)
-                TextField("IMAP 服务器", text: $imapHost)
+                SecureField("", text: $password)
+                    .sortisCenteredPlaceholder("授权码/密码", isEmpty: password.isEmpty)
+                TextField("", text: $imapHost)
+                    .sortisCenteredPlaceholder("IMAP 服务器", isEmpty: imapHost.isEmpty)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
-                TextField("IMAP 端口", text: $imapPort)
+                TextField("", text: $imapPort)
+                    .sortisCenteredPlaceholder("IMAP 端口", isEmpty: imapPort.isEmpty)
                     .keyboardType(.numberPad)
-                TextField("SMTP 服务器", text: $smtpHost)
+                TextField("", text: $smtpHost)
+                    .sortisCenteredPlaceholder("SMTP 服务器", isEmpty: smtpHost.isEmpty)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
-                TextField("SMTP 端口", text: $smtpPort)
+                TextField("", text: $smtpPort)
+                    .sortisCenteredPlaceholder("SMTP 端口", isEmpty: smtpPort.isEmpty)
                     .keyboardType(.numberPad)
-                TextField("收件箱文件夹", text: $folder)
+                Toggle("接收所有文件夹邮件", isOn: $fetchAllFolders)
+                Text("开启后会扫描邮箱服务器中所有可选择文件夹，并分别记录同步进度。")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                if !fetchAllFolders {
+                    TextField("", text: $folder)
+                        .sortisCenteredPlaceholder("收件箱文件夹", isEmpty: folder.isEmpty)
+                }
             case "telegram":
-                SecureField("Bot Token", text: $botToken)
+                SecureField("", text: $botToken)
+                    .sortisCenteredPlaceholder("Bot Token", isEmpty: botToken.isEmpty)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
             case "rss":
-                TextField("RSS 订阅地址", text: $feedUrl)
+                TextField("", text: $feedUrl)
+                    .sortisCenteredPlaceholder("RSS 订阅地址", isEmpty: feedUrl.isEmpty)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
             case "http_token":
-                Text(receiver == nil ? "创建后会显示真实的 Webhook 地址。" : "当前接收器支持直接复制 Webhook 地址和 Token 绑定。")
+                Text(receiver == nil ? "创建后会显示真实的 Webhook 地址，可直接选择已有 Token 或创建并自动绑定新 Token。" : "当前接收器支持直接复制 Webhook 地址和 Token 绑定。")
                     .font(.caption)
                     .foregroundColor(.secondary)
                 if receiver != nil {
-                    TextField("Webhook URL", text: .constant(webhookUrl))
+                    TextField("", text: .constant(webhookUrl))
+                        .sortisCenteredPlaceholder("Webhook URL", isEmpty: webhookUrl.isEmpty)
                         .disabled(true)
                 }
             case "websocket":
-                Text(receiver == nil ? "创建完成后请到 Token 管理页创建 Token，再回来绑定。" : "当前接收器支持直接复制 WebSocket 地址和 Token 绑定。")
+                Text(receiver == nil ? "创建后会显示真实的 WebSocket 地址，可直接选择已有 Token 或创建并自动绑定新 Token。" : "当前接收器支持直接复制 WebSocket 地址和 Token 绑定。")
                     .font(.caption)
                     .foregroundColor(.secondary)
                 if receiver != nil {
-                    TextField("WebSocket URL", text: .constant(webSocketUrl))
+                    TextField("", text: .constant(webSocketUrl))
+                        .sortisCenteredPlaceholder("WebSocket URL", isEmpty: webSocketUrl.isEmpty)
                         .disabled(true)
                 }
             default:
@@ -468,6 +663,7 @@ struct ReceiverEditDialog: View {
         smtpHost = config["smtp_host"] as? String ?? ""
         smtpPort = String(config["smtp_port"] as? Int ?? 465)
         folder = config["folder"] as? String ?? "INBOX"
+        fetchAllFolders = config["fetch_all_folders"] as? Bool ?? false
         feedUrl = config["feed_url"] as? String ?? ""
     }
 
@@ -490,7 +686,8 @@ struct ReceiverEditDialog: View {
                 config["smtp_host"] = smtpHost.trimmingCharacters(in: .whitespacesAndNewlines)
             }
             config["smtp_port"] = Int(smtpPort) ?? 465
-            if !folder.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            config["fetch_all_folders"] = fetchAllFolders
+            if !fetchAllFolders, !folder.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 config["folder"] = folder.trimmingCharacters(in: .whitespacesAndNewlines)
             }
         case "telegram":
@@ -521,7 +718,10 @@ struct ReceiverEditDialog: View {
             let trimmedUrl = feedUrl.trimmingCharacters(in: .whitespacesAndNewlines)
             return trimmedUrl.hasPrefix("http://") || trimmedUrl.hasPrefix("https://")
         case "http_token", "websocket":
-            return true
+            if receiver != nil {
+                return true
+            }
+            return selectedTokenId != nil || !tokenName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         default:
             return false
         }
@@ -549,7 +749,7 @@ private func receiverTypeName(_ type: String) -> String {
     switch type {
     case "http_token": return "Webhook"
     case "websocket": return "WebSocket"
-    case "email": return "邮箱"
+    case "email": return "邮件"
     case "telegram": return "Telegram"
     case "rss": return "RSS"
     default: return type
@@ -557,21 +757,11 @@ private func receiverTypeName(_ type: String) -> String {
 }
 
 private func receiverStatusText(_ status: String) -> String {
-    switch status {
-    case "active": return "运行中"
-    case "paused", "inactive": return "已暂停"
-    case "error": return "错误"
-    default: return status
-    }
+    receiverStatusTagText(status)
 }
 
 private func receiverStatusColor(_ status: String) -> Color {
-    switch status {
-    case "active": return .sortisSuccess
-    case "paused", "inactive": return .sortisWarning
-    case "error": return .sortisError
-    default: return .secondary
-    }
+    receiverStatusTagColor(status)
 }
 
 private func receiverActivityText(_ receiver: Receiver) -> String {

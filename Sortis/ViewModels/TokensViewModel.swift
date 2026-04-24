@@ -24,6 +24,8 @@ class TokensViewModel: ObservableObject {
     @Published var pageSize: Int = 20
     @Published var total: Int = 0
     @Published var totalPages: Int = 0
+    @Published var searchQuery: String = ""
+    @Published var searchField: String = "all"
 
     private var allTokens: [ApiToken] = []
 
@@ -48,17 +50,46 @@ class TokensViewModel: ObservableObject {
         do {
             let tokenList = try await tokenService.getTokens()
             allTokens = tokenList.sorted { ($0.lastUsedAt ?? $0.createdAt ?? "") > ($1.lastUsedAt ?? $1.createdAt ?? "") }
-            total = allTokens.count
-            totalPages = (total > 0) ? (total + pageSize - 1) / pageSize : 0
-
-            let startIndex = (page - 1) * pageSize
-            let endIndex = min(startIndex + pageSize, total)
-
-            tokens = startIndex < total ? Array(allTokens[startIndex..<endIndex]) : []
-            currentPage = page
+            applyFilterAndPagination(page: page, pageSize: pageSize)
         } catch let err {
             error = err.localizedDescription
         }
+    }
+
+    private func applyFilterAndPagination(page: Int, pageSize: Int) {
+        let keyword = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let filtered = allTokens.filter { token in
+            guard !keyword.isEmpty else { return true }
+            let statusText = "\(token.statusText) \(token.runtimeStatus)"
+            let haystack: String
+            switch searchField {
+            case "name":
+                haystack = token.name
+            case "preview":
+                haystack = token.tokenPreview ?? ""
+            case "receiver":
+                haystack = (token.receiverNames ?? []).joined(separator: " ")
+            case "status":
+                haystack = statusText
+            default:
+                haystack = [
+                    token.name,
+                    token.tokenPreview ?? "",
+                    (token.receiverNames ?? []).joined(separator: " "),
+                    statusText
+                ].joined(separator: " ")
+            }
+            return haystack.lowercased().contains(keyword)
+        }
+        total = filtered.count
+            totalPages = (total > 0) ? (total + pageSize - 1) / pageSize : 0
+
+            let safePage = min(page, max(1, totalPages == 0 ? 1 : totalPages))
+            let startIndex = (safePage - 1) * pageSize
+            let endIndex = min(startIndex + pageSize, total)
+
+            tokens = startIndex < total ? Array(filtered[startIndex..<endIndex]) : []
+            currentPage = safePage
     }
 
     func loadReceivers() {
@@ -85,6 +116,16 @@ class TokensViewModel: ObservableObject {
 
     func changePageSize(_ size: Int) {
         loadTokens(page: 1, pageSize: size)
+    }
+
+    func setSearchQuery(_ query: String) {
+        setSearch(query: query, field: searchField)
+    }
+
+    func setSearch(query: String, field: String) {
+        searchQuery = query
+        searchField = field
+        applyFilterAndPagination(page: 1, pageSize: pageSize)
     }
 
     func setEditToken(_ token: ApiToken?) {

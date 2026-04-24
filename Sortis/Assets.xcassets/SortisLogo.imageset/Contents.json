@@ -1,10 +1,9 @@
 {
   "images" : [
     {
-      "filename" : "sortis-app-icon-1024.png",
+      "filename" : "sortis-logo.png",
       "idiom" : "universal",
-      "platform" : "ios",
-      "size" : "1024x1024"
+      "scale" : "1x"
     }
   ],
   "info" : {

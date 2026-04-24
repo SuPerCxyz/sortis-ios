@@ -9,4 +9,8 @@ struct CategoryIconPickerModel {
     static func label(for icon: String?) -> String {
         getCategoryIconLabel(icon)
     }
+
+    static func canonicalValue(for icon: String?) -> String {
+        getCategoryIconPickerValue(icon) ?? ""
+    }
 }

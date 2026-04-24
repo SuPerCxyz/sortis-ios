@@ -14,17 +14,21 @@ struct Rule: Identifiable, Decodable {
     let description: String?
     let categoryId: Int
     let category: RuleCategoryInfo?
+    let matchType: String
     let conditions: [RuleCondition]
-    let priority: Int
     let isEnabled: Bool
+    let titleTemplate: String?
+    let contentTemplate: String?
     let createdAt: String?
     let updatedAt: String?
 
     enum CodingKeys: String, CodingKey {
-        case id, name, description, priority
+        case id, name, description
         case categoryId = "category_id"
         case category, conditions
         case isEnabled = "is_enabled"
+        case titleTemplate = "title_template"
+        case contentTemplate = "content_template"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
     }
@@ -36,31 +40,37 @@ struct Rule: Identifiable, Decodable {
         description = try container.decodeIfPresent(String.self, forKey: .description)
         categoryId = try container.decode(Int.self, forKey: .categoryId)
         category = try container.decodeIfPresent(RuleCategoryInfo.self, forKey: .category)
-        priority = try container.decodeIfPresent(Int.self, forKey: .priority) ?? 0
         isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? true
+        titleTemplate = try container.decodeIfPresent(String.self, forKey: .titleTemplate)
+        contentTemplate = try container.decodeIfPresent(String.self, forKey: .contentTemplate)
         createdAt = try container.decodeIfPresent(String.self, forKey: .createdAt)
         updatedAt = try container.decodeIfPresent(String.self, forKey: .updatedAt)
 
         // Handle conditions - could be array or object with conditions inside
         if let condArray = try? container.decode([RuleCondition].self, forKey: .conditions) {
+            matchType = "all"
             conditions = condArray
         } else if let condObj = try? container.decode(RuleConditionsWrapper.self, forKey: .conditions) {
+            matchType = condObj.matchType ?? "all"
             conditions = condObj.conditions
         } else {
+            matchType = "all"
             conditions = []
         }
     }
 
     // Convenience initializer for creating new rules
-    init(id: Int, name: String, categoryId: Int, conditions: [RuleCondition], isEnabled: Bool, createdAt: String, updatedAt: String?) {
+    init(id: Int, name: String, categoryId: Int, matchType: String = "all", conditions: [RuleCondition], isEnabled: Bool, titleTemplate: String? = nil, contentTemplate: String? = nil, createdAt: String, updatedAt: String?) {
         self.id = id
         self.name = name
         self.description = nil
         self.categoryId = categoryId
         self.category = nil
+        self.matchType = matchType
         self.conditions = conditions
-        self.priority = 0
         self.isEnabled = isEnabled
+        self.titleTemplate = titleTemplate
+        self.contentTemplate = contentTemplate
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
@@ -90,12 +100,14 @@ struct RuleCondition: Identifiable, Decodable {
     let field: String
     let op: String  // 使用 op 代替 operator 避免关键字问题
     let value: AnyEncodable
+    let keyPath: String?
 
     enum CodingKeys: String, CodingKey {
         case _id = "id"
         case field
         case op = "operator"
         case value
+        case keyPath = "key_path"
     }
 
     init(from decoder: Decoder) throws {
@@ -103,6 +115,7 @@ struct RuleCondition: Identifiable, Decodable {
         _id = try container.decodeIfPresent(Int.self, forKey: ._id)
         field = try container.decode(String.self, forKey: .field)
         op = try container.decode(String.self, forKey: .op)
+        keyPath = try container.decodeIfPresent(String.self, forKey: .keyPath)
 
         // Try to decode value as string first, then as any
         if let stringValue = try? container.decode(String.self, forKey: .value) {
@@ -112,11 +125,12 @@ struct RuleCondition: Identifiable, Decodable {
         }
     }
 
-    init(id: Int? = nil, field: String, op: String, value: AnyEncodable) {
+    init(id: Int? = nil, field: String, op: String, value: AnyEncodable, keyPath: String? = nil) {
         self._id = id
         self.field = field
         self.op = op
         self.value = value
+        self.keyPath = keyPath
     }
 
     // Compatibility property
@@ -134,12 +148,11 @@ struct RuleRequest: Encodable {
     let name: String
     let description: String?
     let categoryId: Int
-    let priority: Int
     let conditions: [String: AnyEncodable]
     let isEnabled: Bool
 
     enum CodingKeys: String, CodingKey {
-        case name, description, priority, conditions
+        case name, description, conditions
         case categoryId = "category_id"
         case isEnabled = "is_enabled"
     }

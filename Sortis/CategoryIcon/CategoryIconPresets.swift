@@ -10,240 +10,173 @@ struct CategoryIconOption: Hashable {
     let label: String
 }
 
+private struct CategoryIconGroup {
+    let value: String
+    let keys: [String]
+    let label: String
+    let symbolName: String
+    let tint: Color
+}
+
 private func normalizeCategoryIconKey(_ icon: String?) -> String {
     icon?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
 }
 
+private let categoryIconGroups: [CategoryIconGroup] = [
+    // 工作
+    .init(value: "work", keys: ["folder", "work"], label: "工作", symbolName: "folder.fill", tint: Color(hex: "FAAD14")),
+    .init(value: "business", keys: ["business", "bank"], label: "商务/银行", symbolName: "building.columns.fill", tint: .sortisInfo),
+    .init(value: "api", keys: ["api"], label: "API", symbolName: "network", tint: .sortisInfo),
+    .init(value: "meeting", keys: ["meeting", "calendar", "ticketing"], label: "会议/日历/票务", symbolName: "calendar", tint: .sortisInfo),
+    .init(value: "project", keys: ["project", "task"], label: "项目/任务", symbolName: "pin.fill", tint: Color(hex: "722ED1")),
+    .init(value: "resume", keys: ["resume"], label: "简历", symbolName: "person.text.rectangle.fill", tint: .sortisInfo),
+    .init(value: "document", keys: ["document"], label: "文档", symbolName: "doc.text.fill", tint: .sortisInfo),
+    .init(value: "contract", keys: ["contract", "legal"], label: "合同/法务", symbolName: "list.clipboard.fill", tint: Color(hex: "13C2C2")),
+    .init(value: "invoice", keys: ["invoice", "tax"], label: "发票/税务", symbolName: "creditcard.fill", tint: Color(hex: "FA8C16")),
+    .init(value: "approval", keys: ["approval", "checklist", "check"], label: "审批/清单/完成", symbolName: "checkmark.circle.fill", tint: .sortisSuccess),
+    .init(value: "personal", keys: ["personal", "recruiting", "client"], label: "个人/招聘/客户", symbolName: "person.fill", tint: .sortisInfo),
+    .init(value: "team", keys: ["team", "family", "friend", "parenting", "community"], label: "团队/家庭/朋友/育儿/社区", symbolName: "person.2.fill", tint: Color(hex: "EB2F96")),
+    .init(value: "finance", keys: ["finance", "economy", "investment"], label: "财务/经济/投资", symbolName: "dollarsign.circle.fill", tint: .sortisSuccess),
+    .init(value: "report", keys: ["report", "analytics"], label: "报表/数据分析", symbolName: "chart.bar.fill", tint: .sortisInfo),
+    .init(value: "ticket", keys: ["ticket"], label: "工单", symbolName: "list.clipboard.fill", tint: Color(hex: "FA8C16")),
+    .init(value: "deal", keys: ["deal"], label: "优惠", symbolName: "tag.fill", tint: Color(hex: "FA8C16")),
+
+    // 技术
+    .init(value: "security", keys: ["security"], label: "安全", symbolName: "checkmark.shield.fill", tint: .sortisError),
+    .init(value: "technology", keys: ["technology", "tech", "code"], label: "技术/科技/编程", symbolName: "chevron.left.forwardslash.chevron.right", tint: .sortisInfo),
+    .init(value: "ai", keys: ["ai"], label: "AI", symbolName: "sparkles", tint: Color(hex: "722ED1")),
+    .init(value: "server", keys: ["server"], label: "服务器", symbolName: "server.rack", tint: Color(hex: "13C2C2")),
+    .init(value: "database", keys: ["database"], label: "数据库", symbolName: "externaldrive.fill", tint: Color(hex: "13C2C2")),
+    .init(value: "computer", keys: ["computer", "pc", "desktop"], label: "电脑/台式机", symbolName: "desktopcomputer", tint: .sortisInfo),
+    .init(value: "laptop", keys: ["laptop", "notebook"], label: "笔记本", symbolName: "laptopcomputer", tint: .sortisInfo),
+    .init(value: "monitor", keys: ["monitor", "display"], label: "显示器", symbolName: "display", tint: Color(hex: "13C2C2")),
+    .init(value: "terminal", keys: ["terminal", "shell", "commandline"], label: "终端", symbolName: "terminal.fill", tint: .sortisInfo),
+    .init(value: "network_device", keys: ["network", "network_device", "router", "switch"], label: "网络设备", symbolName: "point.3.connected.trianglepath.dotted", tint: Color(hex: "13C2C2")),
+    .init(value: "chip", keys: ["chip", "cpu"], label: "芯片", symbolName: "cpu.fill", tint: Color(hex: "722ED1")),
+    .init(value: "cloud_service", keys: ["cloud_service", "cloud_infra", "cloud_platform"], label: "云服务", symbolName: "cloud.fill", tint: Color(hex: "597EF7")),
+    .init(value: "server_room", keys: ["server_room", "datacenter", "idc"], label: "机房", symbolName: "square.stack.3d.up.fill", tint: Color(hex: "13C2C2")),
+    .init(value: "ops", keys: ["ops", "tools", "repair", "skill"], label: "运维/工具/维修/技能", symbolName: "wrench.and.screwdriver.fill", tint: .sortisInfo),
+    .init(value: "monitoring", keys: ["monitoring"], label: "监控", symbolName: "eye.fill", tint: Color(hex: "FA8C16")),
+    .init(value: "testing", keys: ["testing", "science", "research"], label: "测试/科学/研究", symbolName: "atom", tint: Color(hex: "13C2C2")),
+    .init(value: "release", keys: ["release", "flag"], label: "发布/标记", symbolName: "flag.fill", tint: Color(hex: "722ED1")),
+
+    // 出行
+    .init(value: "travel", keys: ["travel"], label: "旅行", symbolName: "safari.fill", tint: .sortisInfo),
+    .init(value: "flight", keys: ["flight"], label: "航班", symbolName: "airplane", tint: .sortisInfo),
+    .init(value: "transport", keys: ["transport"], label: "交通", symbolName: "car.fill", tint: Color(hex: "13C2C2")),
+    .init(value: "delivery", keys: ["delivery"], label: "快递", symbolName: "shippingbox.fill", tint: .sortisInfo),
+    .init(value: "car", keys: ["car"], label: "汽车", symbolName: "car.fill", tint: .sortisInfo),
+    .init(value: "bus", keys: ["bus"], label: "公交", symbolName: "bus.fill", tint: Color(hex: "13C2C2")),
+    .init(value: "subway", keys: ["subway"], label: "地铁", symbolName: "tram.fill", tint: Color(hex: "13C2C2")),
+    .init(value: "train", keys: ["train"], label: "火车", symbolName: "train.side.front.car", tint: .sortisInfo),
+
+    // 生活
+    .init(value: "home", keys: ["life", "home", "house", "hotel"], label: "生活/家/房屋/酒店", symbolName: "house.fill", tint: Color(hex: "FA8C16")),
+    .init(value: "health", keys: ["health", "baby", "heart", "pet", "animal"], label: "健康/母婴/爱心/宠物/动物", symbolName: "heart.fill", tint: Color(hex: "EB2F96")),
+    .init(value: "medical", keys: ["medical", "medicine"], label: "医疗/药品", symbolName: "cross.case.fill", tint: .sortisError),
+    .init(value: "sport", keys: ["sport"], label: "运动", symbolName: "bolt.fill", tint: .sortisSuccess),
+    .init(value: "sports", keys: ["sports"], label: "体育", symbolName: "trophy.fill", tint: .sortisSuccess),
+    .init(value: "fitness", keys: ["fitness"], label: "健身", symbolName: "bolt.fill", tint: .sortisSuccess),
+    .init(value: "food", keys: ["food", "takeaway", "recipe", "coffee", "cooking", "cafe"], label: "美食/外卖/菜谱/咖啡/烹饪/咖啡馆", symbolName: "fork.knife", tint: Color(hex: "FA8C16")),
+    .init(value: "shopping", keys: ["shopping"], label: "购物", symbolName: "cart.fill", tint: Color(hex: "722ED1")),
+    .init(value: "mall", keys: ["mall"], label: "商场", symbolName: "bag.fill", tint: Color(hex: "FA8C16")),
+    .init(value: "ecommerce", keys: ["ecommerce"], label: "电商", symbolName: "storefront.fill", tint: .sortisInfo),
+    .init(value: "shop", keys: ["shop"], label: "商店", symbolName: "storefront.fill", tint: .sortisInfo),
+    .init(value: "decoration", keys: ["decoration", "furniture"], label: "装饰/家具", symbolName: "square.grid.2x2.fill", tint: Color(hex: "722ED1")),
+    .init(value: "study", keys: ["study", "book", "education", "school", "university"], label: "学习/书籍/教育/学校/大学", symbolName: "book.fill", tint: .sortisInfo),
+    .init(value: "reading", keys: ["learning", "reading", "course", "reading_plan"], label: "阅读/课程/阅读计划", symbolName: "text.book.closed.fill", tint: .sortisInfo),
+    .init(value: "knowledge", keys: ["knowledge", "idea"], label: "知识/想法", symbolName: "lightbulb.fill", tint: Color(hex: "FAAD14")),
+    .init(value: "sun", keys: ["sun"], label: "太阳", symbolName: "sun.max.fill", tint: Color(hex: "FAAD14")),
+    .init(value: "phone", keys: ["phone", "mobile"], label: "手机", symbolName: "iphone", tint: Color(hex: "13C2C2")),
+    .init(value: "tablet", keys: ["tablet", "ipad"], label: "平板", symbolName: "ipad", tint: Color(hex: "13C2C2")),
+    .init(value: "printer", keys: ["printer"], label: "打印机", symbolName: "printer.fill", tint: .sortisInfo),
+    .init(value: "camera_device", keys: ["camera_device"], label: "摄像设备", symbolName: "video.fill", tint: .sortisInfo),
+    .init(value: "headphones", keys: ["headphones", "headset"], label: "耳机设备", symbolName: "headphones", tint: Color(hex: "722ED1")),
+    .init(value: "office_device", keys: ["office_device", "office_hardware"], label: "办公设备", symbolName: "desktopcomputer", tint: .sortisInfo),
+    .init(value: "email", keys: ["email"], label: "邮箱", symbolName: "envelope.fill", tint: .sortisInfo),
+    .init(value: "clock", keys: ["clock"], label: "时间", symbolName: "clock.fill", tint: .sortisInfo),
+    .init(value: "link", keys: ["link"], label: "链接", symbolName: "link", tint: .sortisInfo),
+    .init(value: "warning", keys: ["warning"], label: "提醒", symbolName: "exclamationmark.triangle.fill", tint: Color(hex: "FA8C16")),
+    .init(value: "cloud", keys: ["cloud", "weather"], label: "云朵/天气", symbolName: "cloud.fill", tint: Color(hex: "597EF7")),
+    .init(value: "water", keys: ["water"], label: "水", symbolName: "drop.fill", tint: Color(hex: "13C2C2")),
+
+    // 娱乐
+    .init(value: "entertainment", keys: ["entertainment", "game", "play"], label: "娱乐/游戏", symbolName: "gamecontroller.fill", tint: Color(hex: "EB2F96")),
+    .init(value: "console", keys: ["console", "game_console"], label: "游戏主机", symbolName: "gamecontroller.fill", tint: Color(hex: "722ED1")),
+    .init(value: "movie", keys: ["movie", "film", "album"], label: "电影/影片/相册", symbolName: "film.fill", tint: Color(hex: "EB2F96")),
+    .init(value: "music", keys: ["music", "music_note"], label: "音乐/音符", symbolName: "music.note", tint: Color(hex: "722ED1")),
+    .init(value: "podcast", keys: ["podcast"], label: "播客", symbolName: "mic.fill", tint: Color(hex: "722ED1")),
+    .init(value: "news", keys: ["news"], label: "新闻", symbolName: "megaphone.fill", tint: .sortisInfo),
+    .init(value: "media", keys: ["media", "live"], label: "媒体/直播", symbolName: "play.tv.fill", tint: Color(hex: "722ED1")),
+    .init(value: "art", keys: ["art"], label: "艺术", symbolName: "paintpalette.fill", tint: Color(hex: "EB2F96")),
+    .init(value: "photo", keys: ["photo", "camera"], label: "摄影/相机", symbolName: "camera.fill", tint: .sortisInfo),
+    .init(value: "nature", keys: ["plant", "tree", "flower"], label: "植物/树木/花朵", symbolName: "tree.fill", tint: .sortisSuccess),
+    .init(value: "social", keys: ["social", "chat"], label: "社交/聊天", symbolName: "message.fill", tint: Color(hex: "13C2C2")),
+    .init(value: "hobby", keys: ["hobby", "star"], label: "爱好/星标", symbolName: "star.fill", tint: Color(hex: "FAAD14")),
+    .init(value: "fire", keys: ["fire"], label: "热门", symbolName: "flame.fill", tint: .sortisError),
+    .init(value: "gift", keys: ["gift"], label: "礼物", symbolName: "gift.fill", tint: Color(hex: "EB2F96")),
+    .init(value: "moon", keys: ["moon"], label: "月亮", symbolName: "moon.fill", tint: Color(hex: "597EF7")),
+
+    // 接收器
+    .init(value: "email_receiver", keys: ["email_receiver"], label: "邮箱接收器", symbolName: "envelope.fill", tint: .sortisInfo),
+    .init(value: "webhook", keys: ["webhook"], label: "Webhook 接收器", symbolName: "network", tint: Color(hex: "FA8C16")),
+    .init(value: "websocket", keys: ["websocket"], label: "WebSocket 接收器", symbolName: "wifi", tint: Color(hex: "13C2C2")),
+    .init(value: "rss", keys: ["rss"], label: "RSS 接收器", symbolName: "text.book.closed.fill", tint: .sortisSuccess),
+    .init(value: "telegram_receiver", keys: ["telegram_receiver"], label: "Telegram 接收器", symbolName: "paperplane.fill", tint: .sortisInfo),
+    .init(value: "notification", keys: ["notification"], label: "通知", symbolName: "bell.fill", tint: Color(hex: "FA8C16")),
+    .init(value: "location", keys: ["location"], label: "位置", symbolName: "location.viewfinder", tint: .sortisError),
+]
+
+private let categorySymbolMap = Dictionary(uniqueKeysWithValues: categoryIconGroups.flatMap { group in
+    group.keys.map { key in (key, group.symbolName) }
+})
+
+private let categoryTintMap = Dictionary(uniqueKeysWithValues: categoryIconGroups.flatMap { group in
+    group.keys.map { key in (key, group.tint) }
+})
+
+private let categoryLabelMap = Dictionary(uniqueKeysWithValues: categoryIconGroups.flatMap { group in
+    group.keys.map { key in (key, group.label) }
+})
+
+private let categoryPickerValueMap = Dictionary(uniqueKeysWithValues: categoryIconGroups.flatMap { group in
+    group.keys.map { key in (key, group.value) }
+})
+
+func getCategoryIconPickerValue(_ icon: String?) -> String? {
+    let normalized = normalizeCategoryIconKey(icon)
+    if normalized.hasPrefix("folder") {
+        return "work"
+    }
+    return categoryPickerValueMap[normalized] ?? (normalized.isEmpty ? nil : normalized)
+}
+
 func categoryIconSymbolName(for icon: String?) -> String {
     let normalized = normalizeCategoryIconKey(icon)
-    let key = normalized.hasPrefix("folder") ? "folder" : normalized
-    switch key {
-    case "folder", "work": return "folder.fill"
-    case "business": return "briefcase.fill"
-    case "api": return "network"
-    case "meeting", "calendar", "ticketing": return "calendar"
-    case "project", "task": return "pin.fill"
-    case "resume", "document", "contract", "legal", "invoice", "report", "medicine", "note", "writing", "blog", "tax": return "doc.text.fill"
-    case "approval", "checklist", "check": return "checkmark.circle.fill"
-    case "recruiting", "client", "personal": return "person.fill"
-    case "team", "family", "parenting", "community", "friend": return "person.2.fill"
-    case "security", "deal", "ticket", "monitoring", "notification", "warning", "news", "live": return "bell.fill"
-    case "server", "database": return "externaldrive.fill"
-    case "ops", "tools", "repair", "skill": return "wrench.and.screwdriver.fill"
-    case "analytics", "testing", "science", "research": return "atom"
-    case "finance", "economy": return "dollarsign.circle.fill"
-    case "bank": return "building.columns.fill"
-    case "investment", "travel": return "safari.fill"
-    case "flight": return "airplane"
-    case "life", "home", "house", "hotel": return "house.fill"
-    case "health", "medical", "heart", "baby", "pet", "animal": return "heart.fill"
-    case "sport", "sports", "hobby", "star": return "star.fill"
-    case "fitness": return "bolt.fill"
-    case "food", "takeaway", "coffee", "cafe", "cooking": return "fork.knife"
-    case "shopping": return "cart.fill"
-    case "ecommerce", "shop": return "storefront.fill"
-    case "delivery", "bus", "car": return "car.fill"
-    case "subway", "train": return "tram.fill"
-    case "decoration", "furniture", "entertainment", "game", "play": return "square.grid.2x2.fill"
-    case "study", "education", "school", "university", "book", "recipe": return "book.fill"
-    case "learning", "reading", "course", "reading_plan": return "text.book.closed.fill"
-    case "knowledge", "idea", "sun": return "lightbulb.fill"
-    case "technology", "tech", "code": return "chevron.left.forwardslash.chevron.right"
-    case "ai": return "sparkles"
-    case "movie", "film": return "film.fill"
-    case "music", "music_note", "podcast", "media": return "music.note"
-    case "art": return "paintpalette.fill"
-    case "album": return "photo.on.rectangle.angled"
-    case "photo", "camera": return "camera.fill"
-    case "plant", "tree": return "tree.fill"
-    case "flower": return "camera.macro"
-    case "fire": return "flame.fill"
-    case "gift": return "gift.fill"
-    case "clock": return "clock.fill"
-    case "location": return "location.fill"
-    case "link": return "link"
-    case "phone": return "iphone"
-    case "email": return "envelope.fill"
-    case "social", "chat": return "message.fill"
-    case "flag", "release": return "flag.fill"
-    case "moon", "cloud", "weather": return "cloud.fill"
-    case "utilities": return "building.columns.fill"
-    case "water": return "drop.fill"
-    default: return "folder.fill"
+    if normalized.hasPrefix("folder") {
+        return categorySymbolMap["work"] ?? "folder.fill"
     }
+    return categorySymbolMap[normalized] ?? "folder.fill"
 }
 
 func categoryIconTint(for icon: String?) -> Color {
     let normalized = normalizeCategoryIconKey(icon)
-    let key = normalized.hasPrefix("folder") ? "folder" : normalized
-    switch key {
-    case "folder", "work", "knowledge", "idea", "star", "sun": return Color(hex: "FAAD14")
-    case "business", "api", "meeting", "resume", "document", "task", "recruiting", "client", "ops", "report", "tools", "bank", "personal", "travel", "delivery", "flight", "bus", "car", "repair", "study", "learning", "reading", "reading_plan", "book", "skill", "technology", "tech", "code", "photo", "camera", "news", "calendar", "clock", "link", "email", "blog", "ecommerce", "note", "writing": return .sortisInfo
-    case "finance", "economy", "approval", "checklist", "check", "sport", "sports", "fitness", "plant", "tree": return .sortisSuccess
-    case "security", "health", "medical", "fire", "location", "flag": return .sortisError
-    case "project", "investment", "community", "friend", "shopping", "decoration", "game", "play", "ai", "music", "music_note", "podcast", "media", "release", "live": return Color(hex: "722ED1")
-    case "contract", "legal", "server", "database", "tax", "analytics", "testing", "medicine", "subway", "train", "hotel", "utilities", "furniture", "course", "education", "school", "university", "science", "research", "phone", "social", "chat", "water": return Color(hex: "13C2C2")
-    case "team", "family", "parenting", "baby", "heart", "entertainment", "movie", "film", "album", "art", "gift", "flower", "pet", "animal": return Color(hex: "EB2F96")
-    case "invoice", "ticket", "monitoring", "life", "food", "takeaway", "recipe", "coffee", "cafe", "cooking", "deal", "home", "house", "shop", "ticketing", "notification", "warning": return Color(hex: "FA8C16")
-    case "moon", "cloud", "weather": return Color(hex: "597EF7")
-    default: return Color(hex: "FAAD14")
+    if normalized.hasPrefix("folder") {
+        return categoryTintMap["work"] ?? Color(hex: "FAAD14")
     }
+    return categoryTintMap[normalized] ?? Color(hex: "FAAD14")
 }
 
 func getCategoryIconLabel(_ icon: String?) -> String {
     let normalized = normalizeCategoryIconKey(icon)
-    let key = normalized.hasPrefix("folder") ? "folder" : normalized
-    switch key {
-    case "": return "文件夹"
-    case "folder": return "文件夹"
-    case "work": return "工作"
-    case "business": return "商务"
-    case "api": return "API"
-    case "meeting": return "会议"
-    case "project": return "项目"
-    case "resume": return "简历"
-    case "document": return "文档"
-    case "contract": return "合同"
-    case "legal": return "法务"
-    case "invoice": return "发票"
-    case "approval": return "审批"
-    case "task": return "任务"
-    case "checklist": return "清单"
-    case "recruiting": return "招聘"
-    case "client": return "客户"
-    case "team": return "团队"
-    case "security": return "安全"
-    case "server": return "服务器"
-    case "ops": return "运维"
-    case "report": return "报表"
-    case "analytics": return "数据分析"
-    case "ticket": return "工单"
-    case "ticketing": return "票务"
-    case "tools": return "工具"
-    case "testing": return "测试"
-    case "release": return "发布"
-    case "monitoring": return "监控"
-    case "finance": return "财务"
-    case "economy": return "经济"
-    case "bank": return "银行"
-    case "database": return "数据库"
-    case "tax": return "税务"
-    case "investment": return "投资"
-    case "personal": return "个人"
-    case "life": return "生活"
-    case "travel": return "旅行"
-    case "delivery": return "快递"
-    case "flight": return "航班"
-    case "subway": return "地铁"
-    case "bus": return "公交"
-    case "family": return "家庭"
-    case "friend": return "朋友"
-    case "health": return "健康"
-    case "medical": return "医疗"
-    case "medicine": return "药品"
-    case "baby": return "母婴"
-    case "parenting": return "育儿"
-    case "heart": return "爱心"
-    case "sport": return "运动"
-    case "sports": return "体育"
-    case "fitness": return "健身"
-    case "food": return "美食"
-    case "takeaway": return "外卖"
-    case "recipe": return "菜谱"
-    case "coffee": return "咖啡"
-    case "cafe": return "咖啡馆"
-    case "cooking": return "烹饪"
-    case "shopping": return "购物"
-    case "ecommerce": return "电商"
-    case "deal": return "优惠"
-    case "hotel": return "酒店"
-    case "car": return "汽车"
-    case "train": return "火车"
-    case "home": return "家"
-    case "house": return "房屋"
-    case "repair": return "维修"
-    case "utilities": return "缴费"
-    case "decoration": return "装饰"
-    case "furniture": return "家具"
-    case "study", "learning": return "学习"
-    case "reading": return "阅读"
-    case "reading_plan": return "阅读计划"
-    case "book": return "书籍"
-    case "note": return "笔记"
-    case "writing": return "写作"
-    case "course": return "课程"
-    case "education": return "教育"
-    case "school": return "学校"
-    case "university": return "大学"
-    case "knowledge": return "知识"
-    case "skill": return "技能"
-    case "technology": return "技术"
-    case "tech": return "科技"
-    case "code": return "编程"
-    case "ai": return "AI"
-    case "science": return "科学"
-    case "research": return "研究"
-    case "entertainment": return "娱乐"
-    case "movie": return "电影"
-    case "film": return "影片"
-    case "music": return "音乐"
-    case "music_note": return "音符"
-    case "game": return "游戏"
-    case "play": return "娱乐"
-    case "hobby": return "爱好"
-    case "art": return "艺术"
-    case "album": return "相册"
-    case "photo": return "摄影"
-    case "camera": return "相机"
-    case "pet": return "宠物"
-    case "animal": return "动物"
-    case "plant": return "植物"
-    case "flower": return "花朵"
-    case "news": return "新闻"
-    case "media": return "媒体"
-    case "blog": return "博客"
-    case "podcast": return "播客"
-    case "notification": return "通知"
-    case "social": return "社交"
-    case "community": return "社区"
-    case "live": return "直播"
-    case "idea": return "想法"
-    case "star": return "星标"
-    case "fire": return "热门"
-    case "gift": return "礼物"
-    case "calendar": return "日历"
-    case "clock": return "时间"
-    case "location": return "位置"
-    case "link": return "链接"
-    case "phone": return "手机"
-    case "email": return "邮箱"
-    case "chat": return "聊天"
-    case "check": return "完成"
-    case "warning": return "提醒"
-    case "flag": return "标记"
-    case "shop": return "商店"
-    case "sun": return "太阳"
-    case "moon": return "月亮"
-    case "cloud": return "云朵"
-    case "weather": return "天气"
-    case "water": return "水"
-    case "tree": return "树木"
-    default: return key
+    if normalized.isEmpty {
+        return "文件夹"
     }
+    if normalized.hasPrefix("folder") {
+        return categoryLabelMap["work"] ?? "工作"
+    }
+    return categoryLabelMap[normalized] ?? normalized
 }
 
-let categoryIconPresetOptions: [CategoryIconOption] = [
-    "work", "document", "personal", "finance", "notification", "email", "chat", "shopping",
-    "travel", "health", "task", "delivery", "weather", "medical", "legal", "server",
-    "business", "meeting", "project", "contract", "invoice", "approval", "checklist",
-    "recruiting", "client", "team", "security", "ops", "report", "analytics", "ticket",
-    "ticketing", "tools", "testing", "release", "monitoring", "cloud", "flight", "subway",
-    "bus", "medicine", "baby", "parenting", "repair", "utilities", "takeaway", "recipe",
-    "album", "social", "community", "live", "reading_plan", "family", "fitness", "food",
-    "bank", "tax", "investment", "tech", "code", "ai", "science", "education", "research",
-    "news", "media", "blog", "podcast", "ecommerce", "deal", "hotel", "car", "train",
-    "entertainment", "music", "game", "sports", "art", "photo", "api", "database", "idea",
-    "star", "heart", "fire", "gift", "calendar", "clock", "location", "link", "phone",
-    "check", "warning", "flag", "home", "shop", "cafe", "book", "music_note", "sun", "moon",
-    "water", "tree", "flower"
-].map { CategoryIconOption(value: $0, label: getCategoryIconLabel($0)) }
+let categoryIconPresetOptions: [CategoryIconOption] =
+    categoryIconGroups.map { CategoryIconOption(value: $0.value, label: $0.label) }

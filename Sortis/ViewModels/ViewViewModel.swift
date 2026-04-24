@@ -16,7 +16,11 @@ class ViewViewModel: ObservableObject {
     @Published var selectedCategory: Int?
     @Published var selectedCategoryName: String?
     @Published var timeRange: String = "7d"
+    @Published var messageStatusFilter: String = "all"
+    @Published var searchQuery: String = ""
+    @Published var searchField: String = "all"
     @Published var stats: MessageStats?
+    @Published var receiverCount: Int = 0
     @Published var selectedMessage: Message?
     @Published var actionMessage: Message?
 
@@ -58,6 +62,7 @@ class ViewViewModel: ObservableObject {
         do {
             let overview = try await statsService.getStatsOverview(days: days)
             stats = overview.messageStats
+            receiverCount = overview.receiverStats.count
         } catch {
             print("Failed to load stats: \(error)")
         }
@@ -78,11 +83,25 @@ class ViewViewModel: ObservableObject {
 
         // 加载消息
         do {
+            let isRead: Bool? = {
+                switch messageStatusFilter {
+                case "unread": return false
+                case "read": return true
+                default: return nil
+                }
+            }()
+            let isStarred: Bool? = messageStatusFilter == "starred" ? true : nil
+            let isCategorized: Bool? = messageStatusFilter == "uncategorized" ? false : nil
             let response = try await messageService.getMessages(
                 page: page,
                 pageSize: pageSize,
                 categoryId: selectedCategory,
-                timeRange: timeRange
+                timeRange: timeRange,
+                isRead: isRead,
+                isStarred: isStarred,
+                isCategorized: isCategorized,
+                search: searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : searchQuery,
+                searchField: searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : searchField
             )
             messages = response.messages
             total = response.total
@@ -118,21 +137,72 @@ class ViewViewModel: ObservableObject {
         loadData(page: 1)
     }
 
+    func setMessageStatusFilter(_ value: String) {
+        messageStatusFilter = value
+        loadData(page: 1)
+    }
+
+    func setSearchQuery(_ value: String) {
+        setSearch(query: value, field: searchField)
+    }
+
+    func setSearch(query: String, field: String) {
+        let previousQuery = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        let nextQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let previousField = searchField
+        searchQuery = query
+        searchField = field
+
+        let queryChanged = previousQuery != nextQuery
+        let shouldReloadForFieldChange = !nextQuery.isEmpty && previousField != field
+        guard queryChanged || shouldReloadForFieldChange else { return }
+
+        loadData(page: 1)
+    }
+
     func selectMessage(_ message: Message?) {
         selectedMessage = message
         if let message = message {
             Task {
-                // 标记已读
-                if !message.isRead {
-                    do {
-                        let updated = try await messageService.markAsRead(messageId: message.id, isRead: true)
-                        if let index = messages.firstIndex(where: { $0.id == message.id }) {
-                            messages[index] = updated
-                        }
-                        selectedMessage = updated
-                    } catch {
-                        print("Failed to mark as read: \(error)")
+                let optimistic = Message(
+                    id: message.id,
+                    userId: message.userId,
+                    receiverId: message.receiverId,
+                    sourceName: message.sourceName,
+                    sourceAddress: message.sourceAddress,
+                    title: message.title,
+                    content: message.content,
+                    contentType: message.contentType,
+                    isRead: true,
+                    isStarred: message.isStarred,
+                    isCategorized: message.isCategorized,
+                    receivedAt: message.receivedAt,
+                    createdAt: message.createdAt,
+                    hasFullContent: message.hasFullContent,
+                    attachments: message.attachments,
+                    receiver: message.receiver,
+                    categories: message.categories
+                )
+                if let index = messages.firstIndex(where: { $0.id == message.id }) {
+                    messages[index] = optimistic
+                }
+                selectedMessage = optimistic
+
+                do {
+                    let updated: Message
+                    if !message.isRead {
+                        updated = try await messageService.markAsRead(messageId: message.id, isRead: true)
+                    } else if !message.hasFullContent {
+                        updated = try await messageService.getMessage(messageId: message.id)
+                    } else {
+                        updated = optimistic
                     }
+                    if let index = messages.firstIndex(where: { $0.id == message.id }) {
+                        messages[index] = updated
+                    }
+                    selectedMessage = updated
+                } catch {
+                    print("Failed to load message detail: \(error)")
                 }
             }
         }
@@ -194,10 +264,10 @@ class ViewViewModel: ObservableObject {
         }
     }
 
-    func deleteMessage(messageId: Int) {
+    func deleteMessage(messageId: Int, deleteRemote: Bool = false) {
         Task {
             do {
-                _ = try await messageService.deleteMessage(messageId: messageId)
+                _ = try await messageService.deleteMessage(messageId: messageId, deleteRemote: deleteRemote)
                 messages.removeAll { $0.id == messageId }
                 actionMessage = nil
                 loadData(page: currentPage)

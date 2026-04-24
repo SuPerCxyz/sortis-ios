@@ -26,25 +26,9 @@ extension String {
     }
 
     private func formatDisplayDate(_ date: Date) -> String {
-        let calendar = Calendar.current
-        let now = Date()
-
-        if calendar.isDateInToday(date) {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "HH:mm"
-            return formatter.string(from: date)
-        } else if calendar.isDateInYesterday(date) {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "昨天 HH:mm"
-            return formatter.string(from: date)
-        } else if calendar.isDate(date, equalTo: now, toGranularity: .year) {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "MM-dd HH:mm"
-            return formatter.string(from: date)
-        } else {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "yyyy-MM-dd HH:mm"
-            return formatter.string(from: date)
-        }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        return formatter.string(from: date)
     }
 }

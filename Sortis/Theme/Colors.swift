@@ -23,11 +23,50 @@ extension Color {
     static let messageUnread = Color(hex: "73D13D")
     static let messageStarred = Color(hex: "FAAD14")
 
+    // 网页端标签色板
+    static let chipNeutral = Color(hex: "A3A3A3")
+    static let chipSuccess = Color(hex: "52C41A")
+    static let chipWarning = Color(hex: "FA8C16")
+    static let chipError = Color(hex: "FF4D4F")
+    static let chipUncategorized = Color(hex: "FAAD14")
+    static let chipEmail = Color(hex: "2F54EB")
+    static let chipTelegram = Color(hex: "1677FF")
+    static let chipWebhook = Color(hex: "13C2C2")
+    static let chipRss = Color(hex: "D46B08")
+    static let chipWebSocket = Color(hex: "722ED1")
+    static let chipMutedBackground = Color(.sRGB, red: 140 / 255, green: 140 / 255, blue: 140 / 255, opacity: 0.14)
+    static let chipMutedText = Color(hex: "8C8C8C")
+    static let chipStatTotal = Color(hex: "69B1FF")
+    static let chipStatRead = Color(hex: "BFBFBF")
+    static let chipStatUnread = Color(hex: "FF4D4F")
+
     // 分类颜色预设
     static let categoryColors: [String] = [
-        "#1677FF", "#52C41A", "#FAAD14", "#FF4D4F",
+        "#000000", "#1677FF", "#52C41A", "#FAAD14", "#FF4D4F",
         "#722ED1", "#13C2C2", "#EB2F96", "#FA8C16"
     ]
+
+    static func generateVividCategoryColors(count: Int = 10) -> [String] {
+        let normalizedCount = max(count, 1)
+        let startHue = Double.random(in: 0...360)
+        let hueStep = 360.0 / Double(normalizedCount)
+        return (0..<normalizedCount).map { index in
+            let jitter = Double.random(in: -8...8)
+            let hue = (startHue + Double(index) * hueStep + jitter).truncatingRemainder(dividingBy: 360)
+            let saturation = min(0.96, 0.76 + Double.random(in: 0...0.18))
+            let brightness = min(0.98, 0.82 + Double.random(in: 0...0.14))
+            let uiColor = UIColor(
+                hue: CGFloat((hue + 360).truncatingRemainder(dividingBy: 360) / 360.0),
+                saturation: CGFloat(saturation),
+                brightness: CGFloat(brightness),
+                alpha: 1
+            )
+            let red = Int((uiColor.cgColor.components?[0] ?? 0) * 255)
+            let green = Int((uiColor.cgColor.components?[1] ?? 0) * 255)
+            let blue = Int((uiColor.cgColor.components?[2] ?? 0) * 255)
+            return String(format: "#%02X%02X%02X", red, green, blue)
+        }
+    }
 
     // 渐变色
     static let sortisGradient = LinearGradient(

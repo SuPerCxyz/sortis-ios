@@ -1,0 +1,5 @@
+version: 1
+product: Sortis
+bundleID: app.sortis.ios
+infoPath: xtool-config/Info.plist
+iconPath: Sortis/Assets.xcassets/AppIcon.appiconset/sortis-app-icon-1024.png

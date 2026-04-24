@@ -17,6 +17,7 @@ Pods/
 # Swift Package Manager
 .build/
 Package.resolved
+/xtool
 
 # Carthage
 Carthage/Build/

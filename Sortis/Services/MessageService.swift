@@ -17,7 +17,10 @@ class MessageService {
         categoryId: Int? = nil,
         timeRange: String? = nil,
         isRead: Bool? = nil,
-        search: String? = nil
+        isStarred: Bool? = nil,
+        isCategorized: Bool? = nil,
+        search: String? = nil,
+        searchField: String? = nil
     ) async throws -> MessageListResponse {
         var queryItems: [URLQueryItem] = [
             URLQueryItem(name: "page", value: String(page)),
@@ -33,8 +36,17 @@ class MessageService {
         if let isRead = isRead {
             queryItems.append(URLQueryItem(name: "is_read", value: String(isRead)))
         }
+        if let isStarred = isStarred {
+            queryItems.append(URLQueryItem(name: "is_starred", value: String(isStarred)))
+        }
+        if let isCategorized = isCategorized {
+            queryItems.append(URLQueryItem(name: "is_categorized", value: String(isCategorized)))
+        }
         if let search = search {
             queryItems.append(URLQueryItem(name: "search", value: search))
+            if let searchField = searchField {
+                queryItems.append(URLQueryItem(name: "search_field", value: searchField))
+            }
         }
 
         return try await client.get(path: "/api/messages", queryItems: queryItems)
@@ -85,8 +97,11 @@ class MessageService {
     }
 
     // 删除消息
-    func deleteMessage(messageId: Int) async throws -> Bool {
-        return try await client.delete(path: "/api/messages/\(messageId)")
+    func deleteMessage(messageId: Int, deleteRemote: Bool = false) async throws -> Bool {
+        let path = deleteRemote
+            ? "/api/messages/\(messageId)?delete_remote=true"
+            : "/api/messages/\(messageId)"
+        return try await client.delete(path: path)
     }
 
     // 移动消息到分类

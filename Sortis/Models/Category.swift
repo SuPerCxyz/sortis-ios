@@ -12,6 +12,7 @@ struct Category: Identifiable, Decodable {
     let id: Int
     let name: String
     let parentId: Int?
+    let fullPath: String?
     let level: Int
     let sortOrder: Int
     let color: String?
@@ -27,6 +28,7 @@ struct Category: Identifiable, Decodable {
     enum CodingKeys: String, CodingKey {
         case id, name, level, color, icon, children
         case parentId = "parent_id"
+        case fullPath = "full_path"
         case sortOrder = "sort_order"
         case iconUrl = "icon_url"
         case unreadCount = "unread_count"
@@ -43,6 +45,7 @@ extension Category {
             id: id,
             name: name,
             parentId: parentId,
+            fullPath: fullPath,
             level: level,
             sortOrder: sortOrder,
             color: color,

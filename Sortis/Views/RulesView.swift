@@ -10,11 +10,73 @@ import SwiftUI
 struct RulesView: View {
     @StateObject private var viewModel = RulesViewModel()
 
-    @State private var showDeleteConfirm = false
+    @State private var selectedRule: Rule?
+    @State private var deleteCandidate: Rule?
     @State private var showReclassifyConfirm = false
 
     var body: some View {
         VStack {
+            HStack(spacing: 8) {
+                Menu {
+                    ForEach(ruleSearchFieldOptions) { option in
+                        Button(action: {
+                            viewModel.setSearch(query: viewModel.searchQuery, field: option.value)
+                        }) {
+                            if viewModel.searchField == option.value {
+                                Label(option.label, systemImage: "checkmark")
+                            } else {
+                                Text(option.label)
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(searchFieldLabel(for: viewModel.searchField, options: ruleSearchFieldOptions))
+                            .font(.caption)
+                        Image(systemName: "chevron.down")
+                            .font(.caption2)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
+                    .background(Color(.secondarySystemBackground))
+                    .cornerRadius(8)
+                }
+                SortisSearchIcon(size: 16, color: .secondary)
+                TextField("", text: $viewModel.searchQuery)
+                    .sortisCenteredPlaceholder("搜索规则", isEmpty: viewModel.searchQuery.isEmpty)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .onSubmit {
+                        viewModel.setSearch(query: viewModel.searchQuery, field: viewModel.searchField)
+                    }
+                if !viewModel.searchQuery.isEmpty {
+                    Button("搜索") {
+                        viewModel.setSearch(query: viewModel.searchQuery, field: viewModel.searchField)
+                    }
+                    .font(.caption)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(Color(.systemBackground))
+            .cornerRadius(10)
+            .padding(.horizontal)
+            .padding(.top, 8)
+
+            HStack {
+                PaginationControl(
+                    currentPage: viewModel.currentPage,
+                    totalPages: viewModel.totalPages,
+                    onPageChange: { viewModel.changePage($0) }
+                )
+                Spacer()
+                Text("共 \(viewModel.total) 条")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 8)
+
             if viewModel.isLoading {
                 Spacer()
                 ProgressView()
@@ -30,46 +92,70 @@ struct RulesView: View {
                 }
                 Spacer()
             } else {
-                ScrollView {
-                    LazyVStack(spacing: 8) {
+                List {
                         ForEach(viewModel.rules) { rule in
-                            RuleCard(
-                                rule: rule,
-                                onToggle: { viewModel.toggleRuleEnabled(ruleId: rule.id) },
-                                onEdit: { viewModel.setEditRule(rule) },
-                                onDelete: {
-                                    viewModel.setActionRule(rule)
-                                    showDeleteConfirm = true
+                            RuleEntityCard(rule: rule)
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    selectedRule = rule
                                 }
-                            )
+                                .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                                    Button {
+                                        viewModel.setActionRule(rule)
+                                    } label: {
+                                        Label("编辑", systemImage: "pencil")
+                                    }
+                                    .tint(.sortisInfo)
+
+                                    Button {
+                                        viewModel.toggleRuleEnabled(ruleId: rule.id)
+                                    } label: {
+                                        Label(rule.isEnabled ? "停用" : "启用", systemImage: rule.isEnabled ? "pause.fill" : "play.fill")
+                                    }
+                                    .tint(.sortisWarning)
+                                }
+                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                    Button(role: .destructive) {
+                                        deleteCandidate = rule
+                                    } label: {
+                                        Label("删除", systemImage: "trash")
+                                    }
+                                }
+                                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                                .listRowSeparator(.hidden)
+                                .listRowBackground(Color.clear)
                         }
-                    }
-                    .padding(.horizontal)
                 }
+                .listStyle(.plain)
                 .refreshable {
                     viewModel.refresh()
                 }
             }
         }
+        .navigationDestination(item: $selectedRule) { rule in
+            RuleEntityDetailView(rule: rule, categories: viewModel.categories)
+        }
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 12) {
                     Button(action: { showReclassifyConfirm = true }) {
-                        Text("重新分类")
-                            .font(.caption)
+                        SortisRefreshIcon(size: 18, color: .accentColor)
                     }
                     Button(action: {
                         viewModel.setActionRule(Rule(
                             id: 0,
                             name: "",
                             categoryId: 0,
+                            matchType: "all",
                             conditions: [],
                             isEnabled: true,
+                            titleTemplate: nil,
+                            contentTemplate: nil,
                             createdAt: "",
                             updatedAt: nil
                         ))
                     }) {
-                        Image(systemName: "plus")
+                        SortisCreateIcon(size: 18)
                     }
                 }
             }
@@ -80,15 +166,16 @@ struct RulesView: View {
                 RuleEditDialog(
                     rule: nil,
                     categories: viewModel.categories,
-                    onSave: { name, categoryId, conditions in
+                    onSave: { name, categoryId, matchType, conditions, titleTemplate, contentTemplate in
                         viewModel.createRule(
                             name: name,
                             description: nil,
                             categoryId: categoryId,
-                            priority: 0,
-                            matchType: "all",
+                            matchType: matchType,
                             conditions: conditions,
-                            isEnabled: true
+                            isEnabled: true,
+                            titleTemplate: titleTemplate,
+                            contentTemplate: contentTemplate
                         )
                     },
                     onDismiss: { viewModel.setActionRule(nil) }
@@ -98,28 +185,33 @@ struct RulesView: View {
                 RuleEditDialog(
                     rule: rule,
                     categories: viewModel.categories,
-                    onSave: { name, categoryId, conditions in
+                    onSave: { name, categoryId, matchType, conditions, titleTemplate, contentTemplate in
                         viewModel.updateRule(
                             ruleId: rule.id,
                             name: name,
                             description: nil,
                             categoryId: categoryId,
-                            priority: 0,
-                            matchType: "all",
+                            matchType: matchType,
                             conditions: conditions,
-                            isEnabled: rule.isEnabled
+                            isEnabled: rule.isEnabled,
+                            titleTemplate: titleTemplate,
+                            contentTemplate: contentTemplate
                         )
                     },
                     onDismiss: { viewModel.setActionRule(nil) }
                 )
             }
         }
-        .alert("确认删除", isPresented: $showDeleteConfirm) {
+        .alert("确认删除", isPresented: Binding(
+            get: { deleteCandidate != nil },
+            set: { if !$0 { deleteCandidate = nil } }
+        )) {
             Button("取消", role: .cancel) {}
             Button("删除", role: .destructive) {
-                if let rule = viewModel.actionRule, rule.id != 0 {
+                if let rule = deleteCandidate, rule.id != 0 {
                     viewModel.deleteRule(ruleId: rule.id)
                 }
+                deleteCandidate = nil
             }
         } message: {
             Text("确定要删除此规则吗？")
@@ -138,9 +230,6 @@ struct RulesView: View {
 // 规则卡片
 struct RuleCard: View {
     let rule: Rule
-    let onToggle: () -> Void
-    let onEdit: () -> Void
-    let onDelete: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -150,38 +239,15 @@ struct RuleCard: View {
                     .lineLimit(1)
 
                 Spacer()
-
-                // 状态开关
-                Toggle("", isOn: Binding(
-                    get: { rule.isEnabled },
-                    set: { _ in onToggle() }
-                ))
-                .labelsHidden()
-                .scaleEffect(0.8)
-
-                Menu {
-                    Button(action: onEdit) {
-                        Label("编辑", systemImage: "pencil")
-                    }
-                    Button(role: .destructive, action: onDelete) {
-                        Label("删除", systemImage: "trash")
-                    }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                        .foregroundColor(.secondary)
-                }
+                FilledTag(
+                    text: rule.isEnabled ? "启用中" : "已停用",
+                    color: rule.isEnabled ? .chipSuccess : .chipWarning
+                )
             }
 
             // 分类信息
             if let category = rule.category {
-                HStack(spacing: 4) {
-                    Image(systemName: "folder.fill")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Text(category.name)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
+                FilledTag(text: category.name, color: categoryTagColor(category.color))
             }
 
             // 条件预览
@@ -202,23 +268,175 @@ struct RuleCard: View {
     }
 }
 
+struct RuleDetailView: View {
+    let rule: Rule
+    let categories: [Category]
+
+    private var targetCategoryDetail: RuleTargetCategoryDetail? {
+        if let category = categories.first(where: { $0.id == rule.categoryId }) {
+            return RuleTargetCategoryDetail(
+                name: category.name,
+                path: category.fullPath?.isEmpty == false ? category.fullPath! : category.name,
+                level: category.level,
+                unreadCount: category.unreadCount,
+                readCount: category.readCount,
+                totalCount: category.totalCount
+            )
+        }
+
+        if let fallbackName = rule.category?.name, !fallbackName.isEmpty {
+            return RuleTargetCategoryDetail(
+                name: fallbackName,
+                path: fallbackName,
+                level: 0,
+                unreadCount: 0,
+                readCount: 0,
+                totalCount: 0
+            )
+        }
+
+        return nil
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text(rule.name)
+                    .font(.title3)
+                    .fontWeight(.semibold)
+
+                HStack(spacing: 8) {
+                    if let category = rule.category {
+                        FilledTag(text: category.name, color: categoryTagColor(category.color))
+                    }
+
+                    FilledTag(text: rule.isEnabled ? "启用中" : "已停用", color: rule.isEnabled ? .chipSuccess : .chipWarning)
+                }
+
+                detailRow("规则名称", rule.name)
+                detailRow("目标分类", targetCategoryDetail?.name ?? "未设置")
+                detailRow("状态", rule.isEnabled ? "启用" : "停用")
+                detailRow("创建时间", (rule.createdAt ?? "").formatDateTime())
+                detailRow("更新时间", (rule.updatedAt ?? "").formatDateTime())
+
+                if let description = rule.description, !description.isEmpty {
+                    detailSection("描述", description)
+                }
+
+                detailSection(
+                    "匹配条件",
+                    rule.conditions.map { "\(ruleFieldName($0.field, keyPath: $0.keyPath)) \(ruleOperatorName($0.op)) \(String(describing: $0.value.value))" }
+                        .joined(separator: "\n")
+                )
+
+                if (rule.titleTemplate?.isEmpty == false) || (rule.contentTemplate?.isEmpty == false) {
+                    detailSection(
+                        "信息模板",
+                        [
+                            "标题模板：\(rule.titleTemplate?.isEmpty == false ? rule.titleTemplate! : "未设置")",
+                            "正文模板：\(rule.contentTemplate?.isEmpty == false ? rule.contentTemplate! : "未设置")"
+                        ].joined(separator: "\n\n")
+                    )
+                }
+
+                if let targetCategoryDetail {
+                    detailSection(
+                        "目标分类详情",
+                        [
+                            "路径：\(targetCategoryDetail.path)",
+                            targetCategoryDetail.level > 0 ? "层级：\(targetCategoryDetail.level)" : nil,
+                            "未读：\(targetCategoryDetail.unreadCount)",
+                            "已读：\(targetCategoryDetail.readCount)",
+                            "总计：\(targetCategoryDetail.totalCount)"
+                        ]
+                            .compactMap { $0 }
+                            .joined(separator: "\n")
+                    )
+                }
+            }
+            .padding(16)
+        }
+        .navigationTitle("分类规则")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func detailRow(_ label: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(.caption)
+                .foregroundColor(.secondary)
+            Text(value.isEmpty ? "-" : value)
+                .font(.body)
+        }
+    }
+
+    private func detailSection(_ title: String, _ content: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.caption)
+                .foregroundColor(.secondary)
+            Text(content.isEmpty ? "-" : content)
+                .font(.body)
+        }
+    }
+}
+
+private struct RuleTargetCategoryDetail {
+    let name: String
+    let path: String
+    let level: Int
+    let unreadCount: Int
+    let readCount: Int
+    let totalCount: Int
+}
+
+private func ruleFieldName(_ field: String, keyPath: String? = nil) -> String {
+    let label: String
+    switch field {
+    case "title": label = "标题"
+    case "content": label = "内容"
+    case "source_name": label = "发件人名称"
+    case "source_address": label = "发件人地址"
+    case "raw_data": label = "原始 JSON"
+    case "has_attachments": label = "是否有附件"
+    default: label = field
+    }
+    if field == "raw_data", let keyPath, !keyPath.isEmpty {
+        return "\(label)(\(keyPath))"
+    }
+    return label
+}
+
+private func ruleOperatorName(_ op: String) -> String {
+    switch op {
+    case "contains": return "包含"
+    case "equals": return "等于"
+    case "startswith": return "开头为"
+    case "endswith": return "结尾为"
+    case "regex": return "匹配"
+    case "not_equals": return "不等于"
+    case "not_contains": return "不包含"
+    default: return op
+    }
+}
+
 // 条件标签
 struct ConditionChip: View {
     let condition: RuleCondition
 
     var body: some View {
         HStack(spacing: 2) {
-            Text(condition.field)
+            Text(ruleFieldName(condition.field, keyPath: condition.keyPath))
                 .font(.caption2)
             Text(getOperatorSymbol(condition.operator))
                 .font(.caption2)
-                .foregroundColor(.secondary)
             Text(formatValue(condition.value))
                 .font(.caption2)
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 2)
-        .background(Color.sortisPrimary.opacity(0.1))
+        .foregroundColor(.white)
+        .background(Color.sortisPrimary)
         .cornerRadius(4)
     }
 
@@ -226,9 +444,11 @@ struct ConditionChip: View {
         switch op {
         case "contains": return "包含"
         case "equals": return "等于"
-        case "startsWith": return "开头"
-        case "endsWith": return "结尾"
-        case "matches": return "匹配"
+        case "startswith": return "开头"
+        case "endswith": return "结尾"
+        case "regex": return "匹配"
+        case "not_equals": return "不等于"
+        case "not_contains": return "不包含"
         default: return op
         }
     }
@@ -245,23 +465,27 @@ struct ConditionChip: View {
 struct RuleEditDialog: View {
     let rule: Rule?
     let categories: [Category]
-    let onSave: (String, Int, [RuleConditionDraft]) -> Void
+    let onSave: (String, Int, String, [RuleConditionDraft], String?, String?) -> Void
     let onDismiss: () -> Void
 
     @State private var name: String = ""
     @State private var categoryId: Int = 0
+    @State private var matchType: String = "all"
+    @State private var titleTemplate: String = ""
+    @State private var contentTemplate: String = ""
     @State private var conditions: [RuleConditionDraft] = []
 
     @Environment(\.dismiss) var dismiss
 
-    let fieldOptions = ["title", "content", "sourceName", "sourceType"]
-    let operatorOptions = ["contains", "equals", "startsWith", "endsWith", "matches"]
+    let fieldOptions = ["title", "content", "source_name", "source_address", "raw_data", "has_attachments"]
+    let operatorOptions = ["contains", "equals", "startswith", "endswith", "regex", "not_equals", "not_contains"]
 
     var body: some View {
         NavigationView {
             Form {
                 Section(header: Text("基本信息")) {
-                    TextField("规则名称", text: $name)
+                    TextField("", text: $name)
+                        .sortisCenteredPlaceholder("规则名称", isEmpty: name.isEmpty)
 
                     Picker("目标分类", selection: $categoryId) {
                         Text("请选择分类").tag(0)
@@ -272,6 +496,11 @@ struct RuleEditDialog: View {
                 }
 
                 Section(header: Text("匹配条件")) {
+                    Picker("匹配方式", selection: $matchType) {
+                        Text("全部条件都满足").tag("all")
+                        Text("任一条件满足").tag("any")
+                    }
+
                     ForEach(conditions.indices, id: \.self) { index in
                         ConditionRow(
                             condition: $conditions[index],
@@ -287,11 +516,25 @@ struct RuleEditDialog: View {
                         conditions.append(RuleConditionDraft(
                             field: "title",
                             op: "contains",
+                            keyPath: "",
                             value: ""
                         ))
                     }) {
-                        Label("添加条件", systemImage: "plus.circle")
+                        HStack(spacing: 6) {
+                            SortisCreateIcon(size: 14)
+                            Text("添加条件")
+                        }
                     }
+                }
+
+                Section(header: Text("信息模板")) {
+                    TextField("", text: $titleTemplate, axis: .vertical)
+                        .sortisCenteredPlaceholder("标题模板", isEmpty: titleTemplate.isEmpty)
+                    TextField("", text: $contentTemplate, axis: .vertical)
+                        .sortisCenteredPlaceholder("正文模板", isEmpty: contentTemplate.isEmpty)
+                    Text("支持 {{raw_data.xxx}}、{{title}}、{{content}}、{{source_name}}、{{source_address}}")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
             }
             .navigationTitle(rule == nil ? "新建规则" : "编辑规则")
@@ -305,7 +548,14 @@ struct RuleEditDialog: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("保存") {
-                        onSave(name, categoryId, conditions)
+                        onSave(
+                            name,
+                            categoryId,
+                            matchType,
+                            conditions,
+                            titleTemplate.isEmpty ? nil : titleTemplate,
+                            contentTemplate.isEmpty ? nil : contentTemplate
+                        )
                         dismiss()
                     }
                     .disabled(name.isEmpty || categoryId == 0 || conditions.isEmpty)
@@ -316,9 +566,13 @@ struct RuleEditDialog: View {
             if let rule = rule {
                 name = rule.name
                 categoryId = rule.categoryId
+                matchType = rule.matchType
+                titleTemplate = rule.titleTemplate ?? ""
+                contentTemplate = rule.contentTemplate ?? ""
                 conditions = rule.conditions.map { RuleConditionDraft(
                     field: $0.field,
                     op: $0.op,
+                    keyPath: $0.keyPath ?? "",
                     value: ($0.value.value as? String) ?? ""
                 ) }
             }
@@ -330,6 +584,7 @@ struct RuleEditDialog: View {
 struct RuleConditionDraft {
     var field: String
     var op: String  // 使用 op 避免关键字问题
+    var keyPath: String
     var value: String
 }
 
@@ -353,9 +608,19 @@ struct ConditionRow: View {
                 }
             }
 
+            if condition.field == "raw_data" {
+                HStack {
+                    Text("Key:")
+                    TextField("", text: $condition.keyPath)
+                        .sortisCenteredPlaceholder("例如 alert.labels.instance", isEmpty: condition.keyPath.isEmpty)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                }
+            }
+
             HStack {
                 Text("值:")
-                TextField("输入匹配值", text: $condition.value)
+                TextField("", text: $condition.value)
+                    .sortisCenteredPlaceholder("输入匹配值", isEmpty: condition.value.isEmpty)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
             }
         }
@@ -366,8 +631,10 @@ struct ConditionRow: View {
         switch field {
         case "title": return "标题"
         case "content": return "内容"
-        case "sourceName": return "来源名称"
-        case "sourceType": return "来源类型"
+        case "source_name": return "发件人名称"
+        case "source_address": return "发件人地址"
+        case "raw_data": return "原始 JSON"
+        case "has_attachments": return "是否有附件"
         default: return field
         }
     }
@@ -376,9 +643,11 @@ struct ConditionRow: View {
         switch op {
         case "contains": return "包含"
         case "equals": return "等于"
-        case "startsWith": return "开头为"
-        case "endsWith": return "结尾为"
-        case "matches": return "正则匹配"
+        case "startswith": return "开头为"
+        case "endswith": return "结尾为"
+        case "regex": return "正则匹配"
+        case "not_equals": return "不等于"
+        case "not_contains": return "不包含"
         default: return op
         }
     }
