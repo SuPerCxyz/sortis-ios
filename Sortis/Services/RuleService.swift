@@ -104,8 +104,12 @@ struct RecategorizeResponse: Decodable {
 }
 
     // 重新分类
-    func recategorizeRules(categoryIds: [Int]? = nil) async throws -> RecategorizeResponse {
+    func recategorizeRules(
+        categoryIds: [Int]? = nil,
+        includeManuallyMoved: Bool = false
+    ) async throws -> RecategorizeResponse {
         var body: [String: AnyEncodable] = [:]
+        body["include_manually_moved"] = AnyEncodable(includeManuallyMoved)
         if let categoryIds = categoryIds {
             body["category_ids"] = AnyEncodable(categoryIds)
         }

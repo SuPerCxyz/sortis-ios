@@ -40,6 +40,16 @@ struct LoginView: View {
                     Text(viewModel.isRegisterMode ? "注册新账户" : "登录账户")
                         .font(.headline)
 
+                    if viewModel.isRegisterMode {
+                        HStack {
+                            Spacer()
+                            Button("返回登录") {
+                                viewModel.toggleMode()
+                            }
+                            .font(.subheadline)
+                        }
+                    }
+
                     // 服务器地址
                     VStack(alignment: .leading, spacing: 6) {
                         Text("服务器地址")

@@ -128,4 +128,28 @@ class MessageService {
 
         return httpResponse.statusCode == 200
     }
+
+    // 批量标记已读
+    func bulkMarkRead(messageIds: [Int]) async throws -> Bool {
+        guard let url = client.makeURL(path: "/api/messages/bulk-mark-read") else {
+            throw APIError.invalidURL
+        }
+
+        let bodyData = try JSONEncoder().encode(messageIds)
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token = TokenManager.shared.getToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        request.httpBody = bodyData
+
+        let (_, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.invalidResponse
+        }
+
+        return httpResponse.statusCode == 200
+    }
 }

@@ -14,6 +14,36 @@ struct RulesView: View {
     @State private var deleteCandidate: Rule?
     @State private var showReclassifyConfirm = false
 
+    private func makeNewRuleDraft() -> Rule {
+        Rule(
+            id: 0,
+            name: "",
+            categoryId: 0,
+            matchType: "all",
+            conditions: [],
+            isEnabled: true,
+            titleTemplate: nil,
+            contentTemplate: nil,
+            createdAt: "",
+            updatedAt: nil
+        )
+    }
+
+    private func makeDuplicatedRuleDraft(from source: Rule) -> Rule {
+        Rule(
+            id: 0,
+            name: "\(source.name)（复制）",
+            categoryId: source.categoryId,
+            matchType: source.matchType,
+            conditions: source.conditions,
+            isEnabled: true,
+            titleTemplate: source.titleTemplate,
+            contentTemplate: source.contentTemplate,
+            createdAt: "",
+            updatedAt: nil
+        )
+    }
+
     var body: some View {
         VStack {
             HStack(spacing: 8) {
@@ -108,6 +138,13 @@ struct RulesView: View {
                                     .tint(.sortisInfo)
 
                                     Button {
+                                        viewModel.setActionRule(makeDuplicatedRuleDraft(from: rule))
+                                    } label: {
+                                        Label("复制", systemImage: "doc.on.doc")
+                                    }
+                                    .tint(.sortisSuccess)
+
+                                    Button {
                                         viewModel.toggleRuleEnabled(ruleId: rule.id)
                                     } label: {
                                         Label(rule.isEnabled ? "停用" : "启用", systemImage: rule.isEnabled ? "pause.fill" : "play.fill")
@@ -138,22 +175,14 @@ struct RulesView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 12) {
+                    Button(action: { viewModel.refresh() }) {
+                        Image(systemName: "arrow.clockwise")
+                    }
                     Button(action: { showReclassifyConfirm = true }) {
-                        SortisRefreshIcon(size: 18, color: .accentColor)
+                        Image(systemName: "wand.and.stars")
                     }
                     Button(action: {
-                        viewModel.setActionRule(Rule(
-                            id: 0,
-                            name: "",
-                            categoryId: 0,
-                            matchType: "all",
-                            conditions: [],
-                            isEnabled: true,
-                            titleTemplate: nil,
-                            contentTemplate: nil,
-                            createdAt: "",
-                            updatedAt: nil
-                        ))
+                        viewModel.setActionRule(makeNewRuleDraft())
                     }) {
                         SortisCreateIcon(size: 18)
                     }
@@ -162,9 +191,10 @@ struct RulesView: View {
         }
         .sheet(item: $viewModel.actionRule) { rule in
             if rule.id == 0 {
+                let presetRule: Rule? = rule.name.isEmpty ? nil : rule
                 // 创建新规则
                 RuleEditDialog(
-                    rule: nil,
+                    rule: presetRule,
                     categories: viewModel.categories,
                     onSave: { name, categoryId, matchType, conditions, titleTemplate, contentTemplate in
                         viewModel.createRule(
@@ -218,11 +248,14 @@ struct RulesView: View {
         }
         .alert("重新分类", isPresented: $showReclassifyConfirm) {
             Button("取消", role: .cancel) {}
-            Button("确认") {
-                viewModel.recategorizeRules()
+            Button("保留手动移动") {
+                viewModel.recategorizeRules(includeManuallyMoved: false)
+            }
+            Button("按规则覆盖全部", role: .destructive) {
+                viewModel.recategorizeRules(includeManuallyMoved: true)
             }
         } message: {
-            Text("将根据所有启用的规则重新分类现有消息，此操作可能需要一些时间。")
+            Text("保留手动移动：保留手动分类并追加规则分类。\n按规则覆盖全部：清除手动移动记录，仅保留最新规则分类。")
         }
     }
 }
@@ -537,7 +570,7 @@ struct RuleEditDialog: View {
                         .foregroundColor(.secondary)
                 }
             }
-            .navigationTitle(rule == nil ? "新建规则" : "编辑规则")
+            .navigationTitle((rule == nil || rule?.id == 0) ? "新建规则" : "编辑规则")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {

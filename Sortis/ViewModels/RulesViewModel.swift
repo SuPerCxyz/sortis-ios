@@ -263,10 +263,10 @@ class RulesViewModel: ObservableObject {
         }
     }
 
-    func recategorizeRules() {
+    func recategorizeRules(includeManuallyMoved: Bool) {
         Task {
             do {
-                _ = try await ruleService.recategorizeRules()
+                _ = try await ruleService.recategorizeRules(includeManuallyMoved: includeManuallyMoved)
                 loadRules(page: currentPage, pageSize: pageSize)
             } catch let err {
                 error = err.localizedDescription

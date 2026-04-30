@@ -319,6 +319,31 @@ class CategoriesViewModel: ObservableObject {
         }
     }
 
+    func bulkMarkRead(messageIds: [Int]) {
+        let targetIds = Set(messageIds)
+        guard !targetIds.isEmpty else { return }
+
+        messages = messages.map { item in
+            targetIds.contains(item.id) ? withReadState(item, isRead: true) : item
+        }
+        if let selectedMessage, targetIds.contains(selectedMessage.id) {
+            self.selectedMessage = withReadState(selectedMessage, isRead: true)
+        }
+        if let actionMessage, targetIds.contains(actionMessage.id) {
+            self.actionMessage = withReadState(actionMessage, isRead: true)
+        }
+
+        Task {
+            do {
+                _ = try await messageService.bulkMarkRead(messageIds: messageIds)
+                refresh()
+            } catch {
+                self.error = error.localizedDescription
+                refresh()
+            }
+        }
+    }
+
     private func findCategory(_ categories: [Category], categoryId: Int) -> Category? {
         for cat in categories {
             if cat.id == categoryId { return cat }
@@ -420,5 +445,27 @@ class CategoriesViewModel: ObservableObject {
         if actionMessage?.id == updated.id {
             actionMessage = updated
         }
+    }
+
+    private func withReadState(_ message: Message, isRead: Bool) -> Message {
+        Message(
+            id: message.id,
+            userId: message.userId,
+            receiverId: message.receiverId,
+            sourceName: message.sourceName,
+            sourceAddress: message.sourceAddress,
+            title: message.title,
+            content: message.content,
+            contentType: message.contentType,
+            isRead: isRead,
+            isStarred: message.isStarred,
+            isCategorized: message.isCategorized,
+            receivedAt: message.receivedAt,
+            createdAt: message.createdAt,
+            hasFullContent: message.hasFullContent,
+            attachments: message.attachments,
+            receiver: message.receiver,
+            categories: message.categories
+        )
     }
 }

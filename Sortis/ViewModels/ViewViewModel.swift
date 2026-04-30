@@ -289,6 +289,53 @@ class ViewViewModel: ObservableObject {
         }
     }
 
+    func bulkMarkRead(messageIds: [Int]) {
+        let targetIds = Set(messageIds)
+        guard !targetIds.isEmpty else { return }
+
+        messages = messages.map { item in
+            targetIds.contains(item.id) ? withReadState(item, isRead: true) : item
+        }
+        if let selectedMessage, targetIds.contains(selectedMessage.id) {
+            self.selectedMessage = withReadState(selectedMessage, isRead: true)
+        }
+        if let actionMessage, targetIds.contains(actionMessage.id) {
+            self.actionMessage = withReadState(actionMessage, isRead: true)
+        }
+
+        Task {
+            do {
+                _ = try await messageService.bulkMarkRead(messageIds: messageIds)
+                refresh()
+            } catch {
+                print("Failed to bulk mark read: \(error)")
+                refresh()
+            }
+        }
+    }
+
+    private func withReadState(_ message: Message, isRead: Bool) -> Message {
+        Message(
+            id: message.id,
+            userId: message.userId,
+            receiverId: message.receiverId,
+            sourceName: message.sourceName,
+            sourceAddress: message.sourceAddress,
+            title: message.title,
+            content: message.content,
+            contentType: message.contentType,
+            isRead: isRead,
+            isStarred: message.isStarred,
+            isCategorized: message.isCategorized,
+            receivedAt: message.receivedAt,
+            createdAt: message.createdAt,
+            hasFullContent: message.hasFullContent,
+            attachments: message.attachments,
+            receiver: message.receiver,
+            categories: message.categories
+        )
+    }
+
     func getAllFlatCategories() -> [FlatCategory] {
         return flattenCategories(allCategories)
     }

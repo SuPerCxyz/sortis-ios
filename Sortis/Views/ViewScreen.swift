@@ -120,8 +120,11 @@ struct CategoryNavigationView: View {
 // 分类消息视图
 struct CategoryMessagesView: View {
     @ObservedObject var viewModel: ViewViewModel
+    @State private var selectedMessageIds: Set<Int> = []
 
     var body: some View {
+        let allCurrentPageSelected = !viewModel.messages.isEmpty && selectedMessageIds.count == viewModel.messages.count
+
         VStack {
             // 顶部导航栏
             HStack {
@@ -210,6 +213,37 @@ struct CategoryMessagesView: View {
             }
             .padding(.horizontal)
 
+            HStack(spacing: 10) {
+                Button(action: {
+                    if allCurrentPageSelected {
+                        selectedMessageIds.removeAll()
+                    } else {
+                        selectedMessageIds = Set(viewModel.messages.map(\.id))
+                    }
+                }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: allCurrentPageSelected ? "checkmark.square.fill" : "square")
+                        Text("选择当前页")
+                    }
+                    .font(.subheadline)
+                }
+                .buttonStyle(.plain)
+
+                Text("已选 \(selectedMessageIds.count) 条")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+
+                Spacer()
+
+                Button("批量设已读") {
+                    viewModel.bulkMarkRead(messageIds: Array(selectedMessageIds))
+                    selectedMessageIds.removeAll()
+                }
+                .disabled(selectedMessageIds.isEmpty)
+            }
+            .padding(.horizontal)
+            .padding(.top, 6)
+
             // 消息列表
             if viewModel.isLoading {
                 Spacer()
@@ -229,11 +263,27 @@ struct CategoryMessagesView: View {
                 ScrollView {
                     LazyVStack(spacing: 8) {
                         ForEach(viewModel.messages) { message in
-                            MessageEntityCard(message: message) {
-                                viewModel.selectMessage(message)
-                            }
-                            .onLongPressGesture {
-                                viewModel.setActionMessage(message)
+                            HStack(alignment: .top, spacing: 8) {
+                                Button(action: {
+                                    if selectedMessageIds.contains(message.id) {
+                                        selectedMessageIds.remove(message.id)
+                                    } else {
+                                        selectedMessageIds.insert(message.id)
+                                    }
+                                }) {
+                                    Image(systemName: selectedMessageIds.contains(message.id) ? "checkmark.circle.fill" : "circle")
+                                        .foregroundColor(selectedMessageIds.contains(message.id) ? .accentColor : .secondary)
+                                        .font(.system(size: 20))
+                                }
+                                .buttonStyle(.plain)
+                                .padding(.top, 14)
+
+                                MessageEntityCard(message: message) {
+                                    viewModel.selectMessage(message)
+                                }
+                                .onLongPressGesture {
+                                    viewModel.setActionMessage(message)
+                                }
                             }
                         }
                     }
@@ -243,6 +293,9 @@ struct CategoryMessagesView: View {
                     viewModel.refresh()
                 }
             }
+        }
+        .onChange(of: viewModel.messages.map(\.id)) { ids in
+            selectedMessageIds = selectedMessageIds.intersection(Set(ids))
         }
         .sheet(item: $viewModel.selectedMessage) { message in
             MessageEntityDetailSheet(

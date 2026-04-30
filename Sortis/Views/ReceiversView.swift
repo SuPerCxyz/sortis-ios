@@ -150,8 +150,13 @@ struct ReceiversView: View {
         }
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button(action: { viewModel.setCreateOpen(true) }) {
-                    SortisCreateIcon(size: 18)
+                HStack(spacing: 12) {
+                    Button(action: { viewModel.refresh() }) {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    Button(action: { viewModel.setCreateOpen(true) }) {
+                        SortisCreateIcon(size: 18)
+                    }
                 }
             }
         }
