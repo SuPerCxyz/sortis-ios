@@ -370,7 +370,8 @@ struct ReceiverEditDialog: View {
 
     @State private var emailAddress: String = ""
     @State private var password: String = ""
-    @State private var imapHost: String = ""
+    @State private var emailProvider: String = "gmail"
+    @State private var imapHost: String = "imap.gmail.com"
     @State private var imapPort: String = "993"
     @State private var smtpHost: String = ""
     @State private var smtpPort: String = "465"
@@ -392,6 +393,27 @@ struct ReceiverEditDialog: View {
         ("http_token", "Webhook"),
         ("rss", "RSS 订阅"),
         ("websocket", "WebSocket")
+    ]
+    private let emailProviderOptions = [
+        ("gmail", "Gmail"),
+        ("outlook", "Outlook / Hotmail"),
+        ("qq", "QQ 邮箱"),
+        ("163", "163 邮箱"),
+        ("126", "126 邮箱"),
+        ("icloud", "iCloud Mail"),
+        ("yahoo", "Yahoo Mail"),
+        ("zoho", "Zoho Mail"),
+        ("custom", "自定义 IMAP")
+    ]
+    private let emailProviderPresets: [String: (imapHost: String, imapPort: Int)] = [
+        "gmail": ("imap.gmail.com", 993),
+        "outlook": ("outlook.office365.com", 993),
+        "qq": ("imap.qq.com", 993),
+        "163": ("imap.163.com", 993),
+        "126": ("imap.126.com", 993),
+        "icloud": ("imap.mail.me.com", 993),
+        "yahoo": ("imap.mail.yahoo.com", 993),
+        "zoho": ("imap.zoho.com", 993)
     ]
 
     private let syncOptions = [1, 5, 10, 15, 30, 60]
@@ -584,6 +606,9 @@ struct ReceiverEditDialog: View {
         .onAppear {
             loadInitialValues()
         }
+        .onChange(of: emailProvider) { _, newValue in
+            applyEmailProviderPresetIfNeeded(provider: newValue)
+        }
     }
 
     @ViewBuilder
@@ -597,13 +622,24 @@ struct ReceiverEditDialog: View {
                     .autocorrectionDisabled()
                 SecureField("", text: $password)
                     .sortisCenteredPlaceholder("授权码/密码", isEmpty: password.isEmpty)
-                TextField("", text: $imapHost)
-                    .sortisCenteredPlaceholder("IMAP 服务器", isEmpty: imapHost.isEmpty)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                TextField("", text: $imapPort)
-                    .sortisCenteredPlaceholder("IMAP 端口", isEmpty: imapPort.isEmpty)
-                    .keyboardType(.numberPad)
+                Picker("邮箱提供商", selection: $emailProvider) {
+                    ForEach(emailProviderOptions, id: \.0) { value, label in
+                        Text(label).tag(value)
+                    }
+                }
+                if emailProvider == "custom" {
+                    TextField("", text: $imapHost)
+                        .sortisCenteredPlaceholder("IMAP 服务器", isEmpty: imapHost.isEmpty)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                    TextField("", text: $imapPort)
+                        .sortisCenteredPlaceholder("IMAP 端口", isEmpty: imapPort.isEmpty)
+                        .keyboardType(.numberPad)
+                } else {
+                    Text("已自动使用 \(emailProviderOptions.first(where: { $0.0 == emailProvider })?.1 ?? "预设服务商") 的 IMAP 配置。")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
                 TextField("", text: $smtpHost)
                     .sortisCenteredPlaceholder("SMTP 服务器", isEmpty: smtpHost.isEmpty)
                     .textInputAutocapitalization(.never)
@@ -663,8 +699,10 @@ struct ReceiverEditDialog: View {
 
         let config = receiver.configDictionary
         emailAddress = config["email_address"] as? String ?? ""
+        emailProvider = inferEmailProvider(config: config)
         imapHost = config["imap_host"] as? String ?? ""
         imapPort = String(config["imap_port"] as? Int ?? 993)
+        applyEmailProviderPresetIfNeeded(provider: emailProvider)
         smtpHost = config["smtp_host"] as? String ?? ""
         smtpPort = String(config["smtp_port"] as? Int ?? 465)
         folder = config["folder"] as? String ?? "INBOX"
@@ -677,16 +715,22 @@ struct ReceiverEditDialog: View {
 
         switch type {
         case "email":
+            config["email_provider"] = emailProvider
             if !emailAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 config["email_address"] = emailAddress.trimmingCharacters(in: .whitespacesAndNewlines)
             }
             if !password.isEmpty {
                 config["password"] = password
             }
-            if !imapHost.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                config["imap_host"] = imapHost.trimmingCharacters(in: .whitespacesAndNewlines)
+            if emailProvider == "custom" {
+                if !imapHost.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    config["imap_host"] = imapHost.trimmingCharacters(in: .whitespacesAndNewlines)
+                }
+                config["imap_port"] = Int(imapPort) ?? 993
+            } else if let preset = emailProviderPresets[emailProvider] {
+                config["imap_host"] = preset.imapHost
+                config["imap_port"] = preset.imapPort
             }
-            config["imap_port"] = Int(imapPort) ?? 993
             if !smtpHost.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 config["smtp_host"] = smtpHost.trimmingCharacters(in: .whitespacesAndNewlines)
             }
@@ -716,7 +760,8 @@ struct ReceiverEditDialog: View {
 
         switch type {
         case "email":
-            return !emailAddress.isEmpty && emailAddress.contains("@")
+            let hasValidCustomImap = emailProvider != "custom" || !imapHost.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            return !emailAddress.isEmpty && emailAddress.contains("@") && hasValidCustomImap
         case "telegram":
             return !botToken.isEmpty
         case "rss":
@@ -730,6 +775,34 @@ struct ReceiverEditDialog: View {
         default:
             return false
         }
+    }
+
+    private func inferEmailProvider(config: [String: Any]) -> String {
+        if let provider = config["email_provider"] as? String {
+            let normalized = provider.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if normalized == "custom" || emailProviderPresets[normalized] != nil {
+                return normalized
+            }
+        }
+
+        if let imapHost = config["imap_host"] as? String {
+            let normalizedHost = imapHost.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if let preset = emailProviderPresets.first(where: { $0.value.imapHost == normalizedHost }) {
+                return preset.key
+            }
+            if !normalizedHost.isEmpty {
+                return "custom"
+            }
+        }
+
+        return "gmail"
+    }
+
+    private func applyEmailProviderPresetIfNeeded(provider: String) {
+        let normalized = provider.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard normalized != "custom", let preset = emailProviderPresets[normalized] else { return }
+        imapHost = preset.imapHost
+        imapPort = String(preset.imapPort)
     }
 }
 
@@ -777,6 +850,9 @@ private func receiverActivityText(_ receiver: Receiver) -> String {
 
 private func buildReceiverConfigSummary(config: [String: Any]) -> String? {
     if let emailAddress = config["email_address"] as? String, !emailAddress.isEmpty {
+        if let provider = config["email_provider"] as? String, !provider.isEmpty {
+            return "邮箱: \(emailAddress)（\(provider)）"
+        }
         return "邮箱: \(emailAddress)"
     }
     if let feedUrl = config["feed_url"] as? String, !feedUrl.isEmpty {
