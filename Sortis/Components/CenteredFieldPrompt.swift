@@ -5,14 +5,12 @@ private struct CenteredFieldPromptModifier: ViewModifier {
     let isEmpty: Bool
 
     func body(content: Content) -> some View {
-        content
-            .multilineTextAlignment(.center)
-            .overlay(alignment: .center) {
+        content.overlay(alignment: .leading) {
             if isEmpty {
                 Text(placeholder)
                     .foregroundColor(.secondary)
                     .frame(maxWidth: .infinity)
-                    .multilineTextAlignment(.center)
+                    .multilineTextAlignment(.leading)
                     .allowsHitTesting(false)
                     .padding(.horizontal, 4)
             }
