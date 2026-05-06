@@ -606,8 +606,8 @@ struct ReceiverEditDialog: View {
         .onAppear {
             loadInitialValues()
         }
-        .onChange(of: emailProvider) { _, newValue in
-            applyEmailProviderPresetIfNeeded(provider: newValue)
+        .onChange(of: emailProvider) { oldValue, newValue in
+            handleEmailProviderChange(from: oldValue, to: newValue)
         }
     }
 
@@ -803,6 +803,17 @@ struct ReceiverEditDialog: View {
         guard normalized != "custom", let preset = emailProviderPresets[normalized] else { return }
         imapHost = preset.imapHost
         imapPort = String(preset.imapPort)
+    }
+
+    private func handleEmailProviderChange(from oldValue: String, to newValue: String) {
+        let oldProvider = oldValue.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let newProvider = newValue.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if newProvider == "custom" && oldProvider != "custom" {
+            imapHost = ""
+            imapPort = "993"
+            return
+        }
+        applyEmailProviderPresetIfNeeded(provider: newProvider)
     }
 }
 
