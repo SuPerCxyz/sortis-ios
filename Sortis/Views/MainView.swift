@@ -145,6 +145,8 @@ struct DetailView: View {
             }
             .navigationTitle(getCurrentTitle())
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar(viewModel.currentRoute == "view" ? .automatic : .visible, for: .navigationBar)
+            .toolbarBackground(viewModel.currentRoute == "view" ? .automatic : .visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     // 移动端菜单按钮
@@ -275,6 +277,18 @@ struct DashboardView: View {
         .onChange(of: viewModel.categoryStatsTimeRange) { _ in
             Task {
                 await viewModel.loadStats()
+            }
+        }
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button(action: {
+                    Task {
+                        await viewModel.refresh()
+                    }
+                }) {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .disabled(viewModel.isRefreshing)
             }
         }
     }
