@@ -235,6 +235,63 @@ class RulesViewModel: ObservableObject {
         }
     }
 
+    func updateRuleAndRecategorizeCategory(
+        ruleId: Int,
+        name: String,
+        description: String?,
+        categoryId: Int?,
+        matchType: String,
+        conditions: [RuleConditionDraft],
+        isEnabled: Bool,
+        titleTemplate: String?,
+        contentTemplate: String?
+    ) {
+        Task { [weak self] in
+            guard let self = self else { return }
+            let conditionsDict: [String: AnyEncodable] = [
+                "match_type": AnyEncodable(matchType),
+                "conditions": AnyEncodable(conditions.map { condition in
+                    var payload: [String: Any] = [
+                        "field": condition.field,
+                        "operator": condition.op,
+                        "value": condition.value
+                    ]
+                    if !condition.keyPath.isEmpty {
+                        payload["key_path"] = condition.keyPath
+                    }
+                    return payload
+                })
+            ]
+
+            do {
+                let updated = try await self.ruleService.updateRule(
+                    ruleId: ruleId,
+                    name: name,
+                    description: description,
+                    categoryId: categoryId,
+                    conditions: conditionsDict,
+                    isEnabled: isEnabled,
+                    titleTemplate: titleTemplate,
+                    contentTemplate: contentTemplate
+                )
+                _ = try await self.ruleService.recategorizeRuleCategory(ruleId: ruleId)
+
+                if let index = self.rules.firstIndex(where: { $0.id == ruleId }) {
+                    self.rules[index] = updated
+                }
+                if let index = self.allRules.firstIndex(where: { $0.id == ruleId }) {
+                    self.allRules[index] = updated
+                }
+
+                await self.fetchRules(page: self.currentPage, pageSize: self.pageSize)
+                self.editRule = nil
+                self.actionRule = nil
+            } catch let err {
+                self.error = err.localizedDescription
+            }
+        }
+    }
+
     func toggleRuleEnabled(ruleId: Int) {
         Task {
             do {

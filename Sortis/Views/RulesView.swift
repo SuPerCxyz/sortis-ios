@@ -228,6 +228,19 @@ struct RulesView: View {
                             contentTemplate: contentTemplate
                         )
                     },
+                    onSaveAndRecategorize: { name, categoryId, matchType, conditions, titleTemplate, contentTemplate in
+                        viewModel.updateRuleAndRecategorizeCategory(
+                            ruleId: rule.id,
+                            name: name,
+                            description: nil,
+                            categoryId: categoryId,
+                            matchType: matchType,
+                            conditions: conditions,
+                            isEnabled: rule.isEnabled,
+                            titleTemplate: titleTemplate,
+                            contentTemplate: contentTemplate
+                        )
+                    },
                     onDismiss: { viewModel.setActionRule(nil) }
                 )
             }
@@ -499,6 +512,7 @@ struct RuleEditDialog: View {
     let rule: Rule?
     let categories: [Category]
     let onSave: (String, Int, String, [RuleConditionDraft], String?, String?) -> Void
+    let onSaveAndRecategorize: ((String, Int, String, [RuleConditionDraft], String?, String?) -> Void)?
     let onDismiss: () -> Void
 
     @State private var name: String = ""
@@ -507,11 +521,21 @@ struct RuleEditDialog: View {
     @State private var titleTemplate: String = ""
     @State private var contentTemplate: String = ""
     @State private var conditions: [RuleConditionDraft] = []
+    @State private var showTargetedRecategorizeConfirm = false
 
     @Environment(\.dismiss) var dismiss
 
     let fieldOptions = ["title", "content", "source_name", "source_address", "raw_data", "has_attachments"]
     let operatorOptions = ["contains", "equals", "startswith", "endswith", "regex", "not_equals", "not_contains"]
+    private var canSubmit: Bool {
+        !name.isEmpty && categoryId != 0 && !conditions.isEmpty
+    }
+    private var isEditingExistingRule: Bool {
+        if let rule {
+            return rule.id != 0
+        }
+        return false
+    }
 
     var body: some View {
         NavigationView {
@@ -569,6 +593,18 @@ struct RuleEditDialog: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
+
+                if isEditingExistingRule, onSaveAndRecategorize != nil {
+                    Section {
+                        Button("保存并重判此分类") {
+                            showTargetedRecategorizeConfirm = true
+                        }
+                        .foregroundColor(.blue)
+                        .disabled(!canSubmit)
+                    } footer: {
+                        Text("仅重判当前规则目标分类，会保留手动移入该分类的信息，不影响其他分类。")
+                    }
+                }
             }
             .navigationTitle((rule == nil || rule?.id == 0) ? "新建规则" : "编辑规则")
             .navigationBarTitleDisplayMode(.inline)
@@ -591,9 +627,25 @@ struct RuleEditDialog: View {
                         )
                         dismiss()
                     }
-                    .disabled(name.isEmpty || categoryId == 0 || conditions.isEmpty)
+                    .disabled(!canSubmit)
                 }
             }
+        }
+        .alert("确认重判此分类", isPresented: $showTargetedRecategorizeConfirm) {
+            Button("取消", role: .cancel) {}
+            Button("确认") {
+                onSaveAndRecategorize?(
+                    name,
+                    categoryId,
+                    matchType,
+                    conditions,
+                    titleTemplate.isEmpty ? nil : titleTemplate,
+                    contentTemplate.isEmpty ? nil : contentTemplate
+                )
+                dismiss()
+            }
+        } message: {
+            Text("保存规则后，将按该分类下当前启用规则重新判断全部未删除信息是否属于此分类；已手动移入该分类的信息会保留。")
         }
         .onAppear {
             if let rule = rule {

@@ -10,6 +10,22 @@ import Foundation
 class RuleService {
     private let client = APIClient.shared
 
+    struct RecategorizeResponse: Decodable {
+        let processed: Int?
+        let message: String?
+        let taskId: String?
+        let totalMessages: Int?
+        let categoryId: Int?
+
+        enum CodingKeys: String, CodingKey {
+            case processed
+            case message
+            case taskId = "task_id"
+            case totalMessages = "total_messages"
+            case categoryId = "category_id"
+        }
+    }
+
     // 获取规则列表
     func getRules(categoryId: Int? = nil) async throws -> RuleListResponse {
         var queryItems: [URLQueryItem] = []
@@ -97,12 +113,6 @@ class RuleService {
         return try await client.delete(path: "/api/rules/\(ruleId)")
     }
 
-    // 重新分类响应
-struct RecategorizeResponse: Decodable {
-    let processed: Int
-    let message: String?
-}
-
     // 重新分类
     func recategorizeRules(
         categoryIds: [Int]? = nil,
@@ -115,5 +125,10 @@ struct RecategorizeResponse: Decodable {
         }
 
         return try await client.post(path: "/api/rules/re-categorize", body: body)
+    }
+
+    // 仅重判当前规则目标分类
+    func recategorizeRuleCategory(ruleId: Int) async throws -> RecategorizeResponse {
+        try await client.postWithoutBody(path: "/api/rules/\(ruleId)/re-categorize-category")
     }
 }
