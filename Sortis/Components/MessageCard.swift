@@ -138,11 +138,6 @@ struct MessageDetailSheet: View {
             .navigationTitle("消息详情")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("关闭") {
-                        onDismiss()
-                    }
-                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     HStack(spacing: 12) {
                         Button(action: onToggleRead) {
@@ -153,6 +148,12 @@ struct MessageDetailSheet: View {
                             Image(systemName: message.isStarred ? "star.fill" : "star")
                                 .foregroundColor(message.isStarred ? .messageStarred : .primary)
                         }
+                        Button(action: onDismiss) {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 30, weight: .semibold))
+                                .frame(width: 40, height: 40)
+                        }
+                        .accessibilityLabel("关闭")
                     }
                 }
             }
