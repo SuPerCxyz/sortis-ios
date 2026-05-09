@@ -7,11 +7,38 @@
 
 import SwiftUI
 
+private struct MessageCategorySummary {
+    let primary: CategoryInfo?
+    let overflowCount: Int
+}
+
+private func summarizeMessageCategories(_ categories: [CategoryInfo]?) -> MessageCategorySummary {
+    let items = categories ?? []
+    guard let first = items.first else {
+        return MessageCategorySummary(primary: nil, overflowCount: 0)
+    }
+
+    var primary = first
+    var highestLevel = first.level ?? 1
+
+    for category in items.dropFirst() {
+        let currentLevel = category.level ?? 1
+        if currentLevel > highestLevel {
+            primary = category
+            highestLevel = currentLevel
+        }
+    }
+
+    return MessageCategorySummary(primary: primary, overflowCount: max(items.count - 1, 0))
+}
+
 struct MessageCard: View {
     let message: Message
     let action: () -> Void
 
     var body: some View {
+        let categorySummary = summarizeMessageCategories(message.categories)
+
         Button(action: action) {
             VStack(alignment: .leading, spacing: 8) {
                 // 第一行：接收器名称 | 分类 | 时间
@@ -24,17 +51,27 @@ struct MessageCard: View {
 
                     Spacer()
 
-                    // 分类标签
-                    if let category = message.categories?.first {
-                        FilledTag(
-                            text: category.name,
-                            color: categoryTagColor(category.color)
-                        )
-                    } else {
-                        FilledTag(
-                            text: "未分类",
-                            color: .chipUncategorized
-                        )
+                    HStack(spacing: 4) {
+                        if let category = categorySummary.primary {
+                            FilledTag(
+                                text: category.name,
+                                color: categoryTagColor(category.color)
+                            )
+                            .frame(maxWidth: categorySummary.overflowCount > 0 ? 136 : 160, alignment: .leading)
+                        } else {
+                            FilledTag(
+                                text: "未分类",
+                                color: .chipUncategorized
+                            )
+                        }
+
+                        if categorySummary.overflowCount > 0 {
+                            FilledTag(
+                                text: "+\(categorySummary.overflowCount)",
+                                color: .chipMutedBackground,
+                                textColor: .chipMutedText
+                            )
+                        }
                     }
 
                     Spacer()

@@ -133,6 +133,7 @@ struct CategoryInfo: Decodable {
     let id: Int
     let name: String
     let color: String?
+    let level: Int?
 }
 
 // 消息列表响应
