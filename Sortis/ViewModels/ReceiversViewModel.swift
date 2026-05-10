@@ -250,12 +250,12 @@ class ReceiversViewModel: ObservableObject {
         }
     }
 
-    func validateReceiver(type: String, config: [String: AnyEncodable]) async -> Bool {
+    func validateReceiver(type: String, config: [String: AnyEncodable]) async -> Result<ValidateResponse, Error> {
         do {
-            _ = try await receiverService.validateReceiver(type: type, config: config)
-            return true
+            let response = try await receiverService.validateReceiver(type: type, config: config)
+            return .success(response)
         } catch {
-            return false
+            return .failure(error)
         }
     }
 

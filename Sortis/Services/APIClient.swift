@@ -170,12 +170,23 @@ class APIClient {
         }
 
         guard httpResponse.statusCode >= 200 && httpResponse.statusCode < 300 else {
-            let errorMessage = String(data: data, encoding: .utf8) ?? "Unknown error"
+            let errorMessage = APIClient.extractErrorMessage(from: data)
             throw APIError.serverError(statusCode: httpResponse.statusCode, message: errorMessage)
         }
 
         let decoder = JSONDecoder()
         return try decoder.decode(T.self, from: data)
+    }
+
+    private static func extractErrorMessage(from data: Data) -> String {
+        if
+            let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let detail = object["detail"] as? String,
+            !detail.isEmpty
+        {
+            return detail
+        }
+        return String(data: data, encoding: .utf8) ?? "Unknown error"
     }
 }
 

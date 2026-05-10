@@ -5,7 +5,7 @@ struct FilledTag: View {
     let color: Color
     var textColor: Color = .white
     var font: Font = .caption
-    var horizontalPadding: CGFloat = 8
+    var horizontalPadding: CGFloat = 3
     var verticalPadding: CGFloat = 3
     var style: FilledTagStyle = .roundedRect
 
@@ -23,6 +23,25 @@ struct FilledTag: View {
             .background(color)
             .foregroundColor(textColor)
             .cornerRadius(style == .pill ? 999 : 6)
+    }
+}
+
+struct FilledCircleTag: View {
+    let text: String
+    let color: Color
+    var textColor: Color = .white
+    var size: CGFloat = 24
+    var font: Font = .caption
+
+    var body: some View {
+        Text(text)
+            .font(font.weight(.medium))
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+            .frame(width: size, height: size)
+            .background(color)
+            .foregroundColor(textColor)
+            .clipShape(Circle())
     }
 }
 

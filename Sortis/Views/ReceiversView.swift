@@ -177,6 +177,12 @@ struct ReceiversView: View {
                         tokenExpiresInDays: tokenExpiresInDays
                     )
                 },
+                onValidate: { type, config in
+                    await viewModel.validateReceiver(
+                        type: type,
+                        config: config.mapValues { AnyEncodable($0) }
+                    )
+                },
                 onDismiss: { viewModel.setCreateOpen(false) }
             )
         }
@@ -192,6 +198,12 @@ struct ReceiversView: View {
                         syncInterval: syncInterval,
                         config: config.mapValues { AnyEncodable($0) },
                         selectedTokenId: selectedTokenId
+                    )
+                },
+                onValidate: { type, config in
+                    await viewModel.validateReceiver(
+                        type: type,
+                        config: config.mapValues { AnyEncodable($0) }
                     )
                 },
                 onDismiss: { viewModel.setEditReceiver(nil) }
@@ -362,6 +374,7 @@ struct ReceiverEditDialog: View {
     let tokens: [ApiToken]
     let serverUrl: String?
     let onSave: (String, String, Int, [String: Any], Int?, String?, String?, Int?) -> Void
+    let onValidate: (String, [String: Any]) async -> Result<ValidateResponse, Error>
     let onDismiss: () -> Void
 
     @State private var name: String = ""
@@ -384,6 +397,9 @@ struct ReceiverEditDialog: View {
     @State private var tokenName: String = ""
     @State private var tokenDescription: String = ""
     @State private var tokenExpiresInDays: Int?
+    @State private var isValidating: Bool = false
+    @State private var validationMessage: String?
+    @State private var validationSucceeded: Bool = false
 
     @Environment(\.dismiss) var dismiss
 
@@ -655,6 +671,15 @@ struct ReceiverEditDialog: View {
                     TextField("", text: $folder)
                         .sortisCenteredPlaceholder("收件箱文件夹", isEmpty: folder.isEmpty)
                 }
+                Button(isValidating ? "验证中..." : "验证配置") {
+                    validateCurrentEmailConfig()
+                }
+                .disabled(!isConfigValid() || isValidating)
+                if let validationMessage {
+                    Text(validationMessage)
+                        .font(.caption)
+                        .foregroundColor(validationSucceeded ? .accentColor : .red)
+                }
             case "telegram":
                 SecureField("", text: $botToken)
                     .sortisCenteredPlaceholder("Bot Token", isEmpty: botToken.isEmpty)
@@ -814,6 +839,31 @@ struct ReceiverEditDialog: View {
             return
         }
         applyEmailProviderPresetIfNeeded(provider: newProvider)
+    }
+
+    private func validateCurrentEmailConfig() {
+        guard !password.isEmpty else {
+            validationSucceeded = false
+            validationMessage = "请先填写授权码/密码后再验证配置"
+            return
+        }
+
+        isValidating = true
+        validationMessage = nil
+        Task {
+            let result = await onValidate(type, buildConfig())
+            await MainActor.run {
+                switch result {
+                case .success:
+                    validationSucceeded = true
+                    validationMessage = "配置验证成功"
+                case .failure(let error):
+                    validationSucceeded = false
+                    validationMessage = error.localizedDescription
+                }
+                isValidating = false
+            }
+        }
     }
 }
 

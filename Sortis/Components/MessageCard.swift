@@ -66,10 +66,12 @@ struct MessageCard: View {
                         }
 
                         if categorySummary.overflowCount > 0 {
-                            FilledTag(
-                                text: "+\(categorySummary.overflowCount)",
+                            let overflowText = "+\(categorySummary.overflowCount)"
+                            FilledCircleTag(
+                                text: overflowText,
                                 color: .chipMutedBackground,
-                                textColor: .chipMutedText
+                                textColor: .chipMutedText,
+                                size: overflowText.count > 2 ? 28 : 24
                             )
                         }
                     }
