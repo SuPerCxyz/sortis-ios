@@ -283,6 +283,12 @@ struct ReceiverCard: View {
 
                 Spacer()
 
+                Text("信息 \(receiver.messageCount)")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+
+                Spacer().frame(width: 8)
+
                 if receiver.type != "http_token" && receiver.type != "websocket" {
                     Text("每 \(receiver.syncInterval ?? 5) 分钟")
                         .font(.caption2)
@@ -329,6 +335,7 @@ struct ReceiverDetailView: View {
                 receiverDetailRow("状态", receiverStatusText(receiver.status))
                 receiverDetailRow("接收器 ID", receiver.publicId ?? "未生成")
                 receiverDetailRow("Token", boundTokenName ?? "未绑定")
+                receiverDetailRow("累计接收", "\(receiver.messageCount) 条信息")
                 receiverDetailRow("频率", receiver.type == "http_token" || receiver.type == "websocket" ? "被动接收" : "每 \(receiver.syncInterval ?? 5) 分钟")
                 receiverDetailRow(receiver.type == "http_token" || receiver.type == "websocket" ? "最近接收" : "最近同步", ((receiver.type == "http_token" || receiver.type == "websocket") ? receiver.lastReceivedAt : receiver.lastSyncAt)?.formatDateTime() ?? "暂无")
                 receiverDetailRow("创建时间", (receiver.createdAt ?? "").formatDateTime())
