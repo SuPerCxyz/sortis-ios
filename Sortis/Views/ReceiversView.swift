@@ -145,7 +145,8 @@ struct ReceiversView: View {
         .navigationDestination(item: $selectedReceiver) { receiver in
             ReceiverEntityDetailView(
                 receiver: receiver,
-                boundTokenName: viewModel.boundToken(for: receiver)?.name
+                boundToken: viewModel.boundToken(for: receiver),
+                serverUrl: viewModel.serverUrl
             )
         }
         .toolbar {
@@ -316,7 +317,40 @@ struct ReceiverCard: View {
 
 struct ReceiverDetailView: View {
     let receiver: Receiver
-    let boundTokenName: String?
+    let boundToken: ApiToken?
+    let serverUrl: String?
+
+    private var webhookUrl: String {
+        guard
+            receiver.type == "http_token",
+            let publicId = receiver.publicId,
+            let serverUrl
+        else { return "" }
+        return "\(serverUrl.trimmingCharacters(in: CharacterSet(charactersIn: "/")))/api/webhook/\(publicId)"
+    }
+
+    private var webSocketUrl: String {
+        guard
+            receiver.type == "websocket",
+            let publicId = receiver.publicId,
+            let serverUrl
+        else { return "" }
+
+        let trimmedBase = serverUrl.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let wsBase: String
+        if trimmedBase.hasPrefix("https://") {
+            wsBase = "wss://\(String(trimmedBase.dropFirst("https://".count)))"
+        } else if trimmedBase.hasPrefix("http://") {
+            wsBase = "ws://\(String(trimmedBase.dropFirst("http://".count)))"
+        } else {
+            wsBase = "ws://\(trimmedBase)"
+        }
+
+        if let plainToken = boundToken?.plainToken, !plainToken.isEmpty {
+            return "\(wsBase)/ws/receiver/\(publicId)?token=\(plainToken)"
+        }
+        return "\(wsBase)/ws/receiver/\(publicId)"
+    }
 
     var body: some View {
         ScrollView {
@@ -334,7 +368,16 @@ struct ReceiverDetailView: View {
                 receiverDetailRow("类型", receiverTypeName(receiver.type))
                 receiverDetailRow("状态", receiverStatusText(receiver.status))
                 receiverDetailRow("接收器 ID", receiver.publicId ?? "未生成")
-                receiverDetailRow("Token", boundTokenName ?? "未绑定")
+                receiverDetailRow("Token", boundToken?.name ?? "未绑定")
+                if receiver.type == "http_token" || receiver.type == "websocket" {
+                    receiverDetailSection("Token 内容", boundToken?.plainToken ?? "该 Token 创建于旧版本，暂不支持再次查看明文")
+                }
+                if !webhookUrl.isEmpty {
+                    receiverDetailSection("Webhook URL", webhookUrl)
+                }
+                if !webSocketUrl.isEmpty {
+                    receiverDetailSection("WebSocket URL", webSocketUrl)
+                }
                 receiverDetailRow("累计接收", "\(receiver.messageCount) 条信息")
                 receiverDetailRow("频率", receiver.type == "http_token" || receiver.type == "websocket" ? "被动接收" : "每 \(receiver.syncInterval ?? 5) 分钟")
                 receiverDetailRow(receiver.type == "http_token" || receiver.type == "websocket" ? "最近接收" : "最近同步", ((receiver.type == "http_token" || receiver.type == "websocket") ? receiver.lastReceivedAt : receiver.lastSyncAt)?.formatDateTime() ?? "暂无")
@@ -515,7 +558,7 @@ struct ReceiverEditDialog: View {
             wsBase = "ws://\(trimmedBase)"
         }
 
-        let tokenPart = currentBoundToken?.tokenPreview ?? currentBoundToken?.plainToken
+        let tokenPart = currentBoundToken?.plainToken
         if let tokenPart, !tokenPart.isEmpty {
             return "\(wsBase)/ws/receiver/\(publicId)?token=\(tokenPart)"
         }

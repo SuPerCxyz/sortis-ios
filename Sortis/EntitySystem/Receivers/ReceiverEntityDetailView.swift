@@ -2,12 +2,14 @@ import SwiftUI
 
 struct ReceiverEntityDetailView: View {
     let receiver: Receiver
-    let boundTokenName: String?
+    let boundToken: ApiToken?
+    let serverUrl: String?
 
     var body: some View {
         ReceiverDetailView(
             receiver: receiver,
-            boundTokenName: boundTokenName
+            boundToken: boundToken,
+            serverUrl: serverUrl
         )
     }
 }
