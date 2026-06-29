@@ -99,8 +99,14 @@ struct CategoryListScreen: View {
             } else {
                 List {
                     ForEach(viewModel.flatCategories, id: \.id) { category in
+                        let activeParentId = viewModel.draggingParentIdState
+                        let isDimmed: Bool = {
+                            guard case .some(let dragParent) = activeParentId else { return false }
+                            return dragParent != category.category.parentId
+                        }()
                         CategoryItemView(
                             category: category,
+                            isDimmed: isDimmed,
                             onOpen: { viewModel.selectCategory(category.category) },
                             onEdit: { viewModel.setEditCategory(category.category) },
                             onMoveToParent: { viewModel.setMoveCategoryTarget(category.category) },
@@ -122,6 +128,15 @@ struct CategoryListScreen: View {
                         .listRowBackground(Color.clear)
                         .listRowInsets(EdgeInsets(top: 3, leading: 16, bottom: 3, trailing: 16))
                         .deleteDisabled(true)
+                        .moveDisabled(isDimmed)
+                        .simultaneousGesture(
+                            LongPressGesture(minimumDuration: 0.2)
+                                .onEnded { _ in
+                                    // 长按瞬间记录当前行的 parent_id，让其它层级行被置灰。
+                                    // 真正的 reorder 仍由系统 List.onMove + ViewModel.tryReorderFlat 完成。
+                                    viewModel.setDraggingParent(category.category.parentId)
+                                }
+                        )
                     }
                     .onMove { sourceIndices, destination in
                         _ = viewModel.tryReorderFlat(from: sourceIndices, to: destination)
@@ -132,6 +147,9 @@ struct CategoryListScreen: View {
                 .scrollContentBackground(.hidden)
                 .refreshable {
                     viewModel.refresh()
+                }
+                .onDisappear {
+                    viewModel.clearDraggingParent()
                 }
             }
         }
@@ -343,6 +361,7 @@ struct CategoryMessagesScreen: View {
 
 struct CategoryItemView: View {
     let category: FlatCategory
+    var isDimmed: Bool = false
     let onOpen: () -> Void
     let onEdit: () -> Void
     let onMoveToParent: () -> Void
@@ -399,9 +418,12 @@ struct CategoryItemView: View {
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 12)
-        .background(Color(.systemBackground))
+        .background(isDimmed ? Color(.secondarySystemBackground) : Color(.systemBackground))
         .cornerRadius(8)
         .shadow(color: Color.black.opacity(0.03), radius: 1, x: 0, y: 1)
+        .opacity(isDimmed ? 0.35 : 1)
+        .allowsHitTesting(!isDimmed)
+        .animation(.easeInOut(duration: 0.15), value: isDimmed)
     }
 }
 

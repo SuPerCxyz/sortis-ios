@@ -32,6 +32,32 @@ class CategoriesViewModel: ObservableObject {
     @Published var searchQuery: String = ""
     @Published var searchField: String = "all"
 
+    /// 当前正在拖拽的分类的 parent_id。
+    /// 三态：nil = 没在拖拽；.some(nil) = 拖拽顶级；.some(.some(id)) = 拖拽子级。
+    /// 用于把非同级行做置灰提示。
+    @Published var draggingParentIdState: Int?? = nil
+
+    private var draggingResetTask: Task<Void, Never>?
+
+    func setDraggingParent(_ parentId: Int?) {
+        draggingParentIdState = .some(parentId)
+        draggingResetTask?.cancel()
+        // 兜底：长按后用户没真的拖拽时，4s 后自动清空，避免状态卡住。
+        draggingResetTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 4_000_000_000)
+            await MainActor.run {
+                self?.draggingParentIdState = nil
+            }
+        }
+    }
+
+    func clearDraggingParent() {
+        draggingResetTask?.cancel()
+        draggingResetTask = nil
+        draggingParentIdState = nil
+    }
+
+
     private let categoryService = CategoryService()
     private let messageService = MessageService()
 
@@ -152,6 +178,7 @@ class CategoriesViewModel: ObservableObject {
 
     /// 由 SwiftUI List.onMove 调用。仅允许同一上级分类内的拖拽，跨级会返回 false 让 UI 回弹。
     func tryReorderFlat(from sourceIndices: IndexSet, to destination: Int) -> Bool {
+        defer { clearDraggingParent() }
         guard let sourceIndex = sourceIndices.first else { return false }
         guard sourceIndex >= 0 && sourceIndex < flatCategories.count else { return false }
         let movingFlat = flatCategories[sourceIndex]
