@@ -75,7 +75,7 @@ class ReceiversViewModel: ObservableObject {
                 guard !keyword.isEmpty else { return true }
                 let boundTokenNames = tokens
                     .filter { token in
-                        token.isActive && ((token.receiverIds ?? []).contains(receiver.id) || token.receiverId == receiver.id)
+                        token.isActive && ((token.receiverIds ?? []).contains(receiver.id))
                     }
                     .map(\.name)
                     .joined(separator: " ")
@@ -200,7 +200,8 @@ class ReceiversViewModel: ObservableObject {
                     if let selectedTokenId {
                         _ = try await tokenService.bindTokenToReceiver(tokenId: selectedTokenId, receiverId: receiverId)
                     } else if let currentToken = boundToken(for: updatedReceiver) {
-                        let remainingReceiverIds = (currentToken.receiverIds ?? (currentToken.receiverId.map { [$0] } ?? []))
+                        // L4: 只读 receiverIds；receiverId 单字段已废弃
+                        let remainingReceiverIds = (currentToken.receiverIds ?? [])
                             .filter { $0 != receiverId }
                         _ = try await tokenService.bindTokenToReceivers(tokenId: currentToken.id, receiverIds: remainingReceiverIds)
                     }
@@ -261,7 +262,7 @@ class ReceiversViewModel: ObservableObject {
 
     func boundToken(for receiver: Receiver) -> ApiToken? {
         tokens.first {
-            $0.isActive && (($0.receiverIds ?? []).contains(receiver.id) || $0.receiverId == receiver.id)
+            $0.isActive && (($0.receiverIds ?? []).contains(receiver.id))
         }
     }
 

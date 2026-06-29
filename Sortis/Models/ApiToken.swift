@@ -4,6 +4,10 @@
 //
 //  API Token 数据模型
 //
+//  注意：后端字段 `receiver_id`（单值）已废弃，将在过渡期满后从 schema 移除。
+//  详见 sortis 仓库 docs/specs/L4-token-bind-cleanup.md。
+//  客户端应优先读 receiverIds；保留 receiverId 字段仅为兼容老缓存。
+//
 
 import Foundation
 
@@ -13,6 +17,7 @@ struct ApiToken: Identifiable, Decodable {
     let name: String
     let tokenPreview: String?
     let plainToken: String?
+    @available(*, deprecated, message: "后端字段已废弃，使用 receiverIds?.first。过渡期后该字段会从响应中移除。")
     let receiverId: Int?
     let receiverIds: [Int]?
     let receiverNames: [String]?
@@ -92,6 +97,7 @@ struct TokenCreateResponse: Decodable {
     let name: String
     let tokenPreview: String?
     let plainToken: String?
+    @available(*, deprecated, message: "后端字段已废弃，使用 receiverIds?.first。过渡期后该字段会从响应中移除。")
     let receiverId: Int?
     let receiverIds: [Int]?
     let receiverNames: [String]?

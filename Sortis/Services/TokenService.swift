@@ -59,10 +59,14 @@ class TokenService {
         return try await client.delete(path: "/api/tokens/\(tokenId)")
     }
 
-    // 绑定 Token 到接收器
+    /// 绑定 Token 到单个接收器。
+    ///
+    /// L4 过渡期实现：保留旧 API 签名（兼容上层调用），但内部统一走
+    /// multi-bind 接口，避免再依赖后端废弃的 `receiver_id` 单字段。
+    /// 详见 sortis 仓库 docs/specs/L4-token-bind-cleanup.md。
     func bindTokenToReceiver(tokenId: Int, receiverId: Int?) async throws -> ApiToken {
-        let body = BindTokenRequest(receiverId: receiverId, receiverIds: nil)
-        return try await client.put(path: "/api/tokens/\(tokenId)/bind-receiver", body: body)
+        let ids = receiverId.map { [$0] } ?? []
+        return try await bindTokenToReceivers(tokenId: tokenId, receiverIds: ids)
     }
 
     // 绑定 Token 到多个接收器

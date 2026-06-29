@@ -360,12 +360,10 @@ private func resolveTokenReceiverTagColor(
     index: Int,
     receivers: [Receiver]
 ) -> Color {
+    // L4 阶段 2：仅依赖 receiverIds；后端 receiver_id 单字段已弃用，不再读取
     let receiverById =
         (token.receiverIds?.indices.contains(index) == true
             ? receivers.first(where: { $0.id == token.receiverIds?[index] })
-            : nil)
-        ?? (index == 0
-            ? token.receiverId.flatMap { receiverId in receivers.first(where: { $0.id == receiverId }) }
             : nil)
     let receiver = receiverById ?? receivers.first(where: { $0.name == receiverName })
     return receiver.map { receiverTypeTagColor($0.type) } ?? tokenReceiverTagColor(index)

@@ -43,11 +43,14 @@ struct MessageCard: View {
             VStack(alignment: .leading, spacing: 8) {
                 // 第一行：接收器名称 | 分类 | 时间
                 HStack {
-                    Text(message.sourceName ?? "未知来源")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    FilledTag(
+                        text: message.receiver?.name ?? message.sourceName ?? message.sourceAddress ?? "未知来源",
+                        color: .chipMutedBackground,
+                        textColor: .chipMutedText,
+                        horizontalPadding: 5,
+                        verticalPadding: 2
+                    )
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
                     Spacer()
 
@@ -165,8 +168,14 @@ struct MessageDetailSheet: View {
 
                     // 内容
                     if let content = message.content, !content.isEmpty {
-                        Text(content)
-                            .font(.body)
+                        if let htmlDocument = message.zoomableHTMLDetailDocument {
+                            MessageHTMLContentView(html: htmlDocument)
+                                .frame(minHeight: 420)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                        } else {
+                            Text(content)
+                                .font(.body)
+                        }
                     } else {
                         Text("(无内容)")
                             .foregroundColor(.secondary)
