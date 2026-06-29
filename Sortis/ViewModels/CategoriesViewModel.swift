@@ -150,6 +150,106 @@ class CategoriesViewModel: ObservableObject {
         }
     }
 
+    /// 由 SwiftUI List.onMove 调用。仅允许同一上级分类内的拖拽，跨级会返回 false 让 UI 回弹。
+    func tryReorderFlat(from sourceIndices: IndexSet, to destination: Int) -> Bool {
+        guard let sourceIndex = sourceIndices.first else { return false }
+        guard sourceIndex >= 0 && sourceIndex < flatCategories.count else { return false }
+        let movingFlat = flatCategories[sourceIndex]
+        let movingCategory = movingFlat.category
+        let parentId = movingCategory.parentId
+
+        // 计算落点所在的同级分类索引（落点为目标行的“前面”，需要换算）。
+        var targetSiblingIndex: Int
+        if destination <= sourceIndex {
+            // 上移：destination 指向插入位置；同级中第几个？
+            targetSiblingIndex = countSiblingsBefore(destination, parentId: parentId)
+        } else {
+            // 下移：destination 是 sourceIndex 之后某行“前面”插入，需要减去自己。
+            targetSiblingIndex = countSiblingsBefore(destination, parentId: parentId) - 1
+        }
+
+        let siblingIds = findSiblingIds(categories, parentId: parentId)
+        guard let fromIndex = siblingIds.firstIndex(of: movingCategory.id) else { return false }
+
+        // 目标行必须是同级。若 destination 对应的相邻行属于其它父级，则拒绝。
+        if destination < flatCategories.count {
+            let anchor = flatCategories[destination]
+            if anchor.category.parentId != parentId {
+                error = "仅支持在同一上级分类中拖拽排序"
+                return false
+            }
+        }
+
+        let clampedTarget = max(0, min(targetSiblingIndex, siblingIds.count - 1))
+        if clampedTarget == fromIndex { return false }
+
+        var reorderedIds = siblingIds
+        let movedId = reorderedIds.remove(at: fromIndex)
+        reorderedIds.insert(movedId, at: clampedTarget)
+
+        // 乐观更新 UI
+        categories = reorderSiblings(categories, parentId: parentId, orderedIds: reorderedIds)
+        flatCategories = flattenCategories(categories)
+
+        Task {
+            do {
+                _ = try await categoryService.reorderCategories(parentId: parentId, orderedIds: reorderedIds)
+            } catch let err {
+                error = err.localizedDescription
+                loadCategories()
+            }
+        }
+        return true
+    }
+
+    private func countSiblingsBefore(_ flatIndex: Int, parentId: Int?) -> Int {
+        var count = 0
+        let upper = min(flatIndex, flatCategories.count)
+        for i in 0..<upper {
+            if flatCategories[i].category.parentId == parentId {
+                count += 1
+            }
+        }
+        return count
+    }
+
+    private func reorderSiblings(_ categories: [Category], parentId: Int?, orderedIds: [Int]) -> [Category] {
+        if categories.isEmpty { return categories }
+        let currentParents = Set(categories.map { $0.parentId })
+        let isTargetLevel = currentParents.count == 1 &&
+            currentParents.first == parentId &&
+            Set(categories.map(\.id)) == Set(orderedIds)
+        if isTargetLevel {
+            let byId = Dictionary(uniqueKeysWithValues: categories.map { ($0.id, $0) })
+            return orderedIds.compactMap { byId[$0] }
+        }
+        return categories.map { category in
+            let children = category.children ?? []
+            if children.isEmpty {
+                return category
+            }
+            let reorderedChildren = reorderSiblings(children, parentId: parentId, orderedIds: orderedIds)
+            return Category(
+                id: category.id,
+                name: category.name,
+                parentId: category.parentId,
+                fullPath: category.fullPath,
+                level: category.level,
+                sortOrder: category.sortOrder,
+                color: category.color,
+                icon: category.icon,
+                iconUrl: category.iconUrl,
+                children: reorderedChildren,
+                unreadCount: category.unreadCount,
+                totalCount: category.totalCount,
+                readCount: category.readCount,
+                latestMessageTitle: category.latestMessageTitle,
+                latestMessageTime: category.latestMessageTime
+            )
+        }
+    }
+
+
     func moveCategory(categoryId: Int, toParentId parentId: Int?) {
         Task {
             guard let category = findCategory(categories, categoryId: categoryId) else { return }

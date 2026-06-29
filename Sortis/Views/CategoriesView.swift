@@ -97,32 +97,39 @@ struct CategoryListScreen: View {
                 }
                 Spacer()
             } else {
-                ScrollView {
-                    LazyVStack(spacing: 6) {
-                        ForEach(viewModel.flatCategories, id: \.id) { category in
-                            CategoryItemView(
-                                category: category,
-                                onOpen: { viewModel.selectCategory(category.category) },
-                                onEdit: { viewModel.setEditCategory(category.category) },
-                                onMoveToParent: { viewModel.setMoveCategoryTarget(category.category) },
-                                onMoveUp: {
-                                    if viewModel.canMoveUp(category.category) {
-                                        viewModel.moveCategory(categoryId: category.id, moveUp: true)
-                                    }
-                                },
-                                onMoveDown: {
-                                    if viewModel.canMoveDown(category.category) {
-                                        viewModel.moveCategory(categoryId: category.id, moveUp: false)
-                                    }
-                                },
-                                onDelete: {
-                                    viewModel.setActionCategory(category.category)
+                List {
+                    ForEach(viewModel.flatCategories, id: \.id) { category in
+                        CategoryItemView(
+                            category: category,
+                            onOpen: { viewModel.selectCategory(category.category) },
+                            onEdit: { viewModel.setEditCategory(category.category) },
+                            onMoveToParent: { viewModel.setMoveCategoryTarget(category.category) },
+                            onMoveUp: {
+                                if viewModel.canMoveUp(category.category) {
+                                    viewModel.moveCategory(categoryId: category.id, moveUp: true)
                                 }
-                            )
-                        }
+                            },
+                            onMoveDown: {
+                                if viewModel.canMoveDown(category.category) {
+                                    viewModel.moveCategory(categoryId: category.id, moveUp: false)
+                                }
+                            },
+                            onDelete: {
+                                viewModel.setActionCategory(category.category)
+                            }
+                        )
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets(top: 3, leading: 16, bottom: 3, trailing: 16))
+                        .deleteDisabled(true)
                     }
-                    .padding(.horizontal)
+                    .onMove { sourceIndices, destination in
+                        _ = viewModel.tryReorderFlat(from: sourceIndices, to: destination)
+                    }
                 }
+                .listStyle(.plain)
+                .environment(\.editMode, .constant(.active))
+                .scrollContentBackground(.hidden)
                 .refreshable {
                     viewModel.refresh()
                 }
