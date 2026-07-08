@@ -159,6 +159,8 @@ class AllMessagesViewModel: ObservableObject {
                     updateMessageInList(updated)
                     selectedMessage = updated
                 } catch {
+                    updateMessageInList(message)
+                    selectedMessage = message
                     print("Failed to load message detail: \(error)")
                 }
             }

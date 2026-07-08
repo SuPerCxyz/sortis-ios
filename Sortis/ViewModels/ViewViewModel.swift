@@ -202,6 +202,10 @@ class ViewViewModel: ObservableObject {
                     }
                     selectedMessage = updated
                 } catch {
+                    if let index = messages.firstIndex(where: { $0.id == message.id }) {
+                        messages[index] = message
+                    }
+                    selectedMessage = message
                     print("Failed to load message detail: \(error)")
                 }
             }

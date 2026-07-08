@@ -389,6 +389,8 @@ class CategoriesViewModel: ObservableObject {
                 updateMessageInList(updated)
                 selectedMessage = updated
             } catch {
+                updateMessageInList(message)
+                selectedMessage = message
                 self.error = error.localizedDescription
             }
         }
